@@ -8,6 +8,8 @@
 #define MyAppURL "https://f0e.github.io/blur"
 
 [Setup]
+; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
+; (To generate a new GUID, click Tools | Generate GUID inside the IDE.)
 AppId={{D283CF94-CD1F-432D-B4BE-0516562C258B}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
@@ -18,6 +20,8 @@ AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
+; Uncomment the following line to run in non administrative install mode (install for current user only.)
+;PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=.\output
 OutputBaseFilename=blur-installer
@@ -52,6 +56,8 @@ Source: ".\resources\blur-gui.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: ".\resources\blur-cli.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: ".\dependencies\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: ".\redist\VC_redist.x64.exe"; DestDir: {tmp}; Flags: deleteafterinstall
+
+; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\blur-gui.exe"
