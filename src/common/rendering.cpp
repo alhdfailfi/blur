@@ -60,7 +60,7 @@ Render& Rendering::queue_render(Render&& render) {
 }
 
 void Render::build_output_filename() {
-	auto output_folder = this->m_video_folder / this->m_app_settings.output_prefix;
+	auto output_folder = this->m_video_folder / std::filesystem::path(this->m_app_settings.output_prefix);
 	std::filesystem::create_directories(output_folder);
 
 	// build output filename
@@ -129,8 +129,16 @@ Render::Render(
 	this->m_video_folder = this->m_video_path.parent_path();
 
 	// parse config file (do it now, not when rendering. nice for batch rendering the same file with different settings)
+	std::filesystem::path config_file;
+	if (config_path.has_value()) {
+		config_file = config_path.value();
+	}
+	else {
+		config_file = config_blur::get_config_filename(m_video_folder);
+	}
+	
 	auto config_res = config_blur::get_config(
-		config_path.has_value() ? output_path.value() : config_blur::get_config_filename(m_video_folder),
+		config_file,
 		!config_path.has_value() // use global only if no config path is specified
 	);
 
@@ -139,8 +147,9 @@ Render::Render(
 
 	this->m_app_settings = config_app::get_app_config();
 
-	if (output_path.has_value())
+	if (output_path.has_value()) {
 		this->m_output_path = output_path.value();
+	}
 	else {
 		// note: this uses settings, so has to be called after they're loaded
 		build_output_filename();
@@ -152,10 +161,13 @@ bool Render::create_temp_path() {
 
 	auto temp_path = blur.create_temp_path(std::to_string(out_hash));
 
-	if (temp_path)
-		m_temp_path = *temp_path;
-
-	return temp_path.has_value();
+	if (temp_path.has_value()) {
+		m_temp_path = temp_path.value();
+		return true;
+	}
+	else {
+		return false;
+	}
 }
 
 bool Render::remove_temp_path() {
@@ -183,7 +195,7 @@ tl::expected<RenderCommands, std::string> Render::build_render_commands() {
 #endif
 
 	std::wstring path_string = m_video_path.wstring();
-	std::ranges::replace(path_string, '\\', '/');
+	std::ranges::replace(path_string, L'\\', L'/');
 
 	// Build vspipe command
 	commands.vspipe = { L"-p",
