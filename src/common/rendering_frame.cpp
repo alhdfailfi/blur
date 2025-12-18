@@ -1,4 +1,11 @@
 ﻿﻿#include "rendering_frame.h"
+#include "rendering.h"
+#include "config_app.h"
+
+// 注意：根据头文件，build_render_commands是静态成员函数
+// 但在你的实现中，你把它当作非静态成员函数实现了
+// 这里需要统一：要么在头文件中移除static，要么在实现中加上static
+// 根据头文件，它应该是静态的，所以实现应该匹配
 
 tl::expected<RenderCommands, std::string> FrameRender::build_render_commands(
 	const std::filesystem::path& input_path,
@@ -10,11 +17,11 @@ tl::expected<RenderCommands, std::string> FrameRender::build_render_commands(
 
 	auto settings_json = settings.to_json();
 	if (!settings_json)
-		return tl::unexpected(settings_json.error());
+		return tl::unexpected<std::string>(settings_json.error());
 
 	auto app_settings_json = app_settings.to_json();
 	if (!app_settings_json)
-		return tl::unexpected(app_settings_json.error());
+		return tl::unexpected<std::string>(app_settings_json.error());
 
 	settings_json->update(*app_settings_json); // adds new keys from app settings (and overrides dupes)
 
@@ -25,7 +32,7 @@ tl::expected<RenderCommands, std::string> FrameRender::build_render_commands(
 	RenderCommands commands;
 
 	std::wstring path_string = input_path.wstring();
-	std::ranges::replace(path_string, '\\', '/');
+	std::ranges::replace(path_string, L'\\', L'/');
 
 	// Build vspipe command
 	commands.vspipe = { L"-p",
@@ -168,14 +175,14 @@ tl::expected<void, std::string> FrameRender::do_render(RenderCommands render_com
 		if (ffmpeg_process.exit_code() != 0) { // || vspipe_process.exit_code() != 0;
 			                                   // todo: check why vspipe isnt returning 0
 			remove_temp_path();
-			return tl::unexpected(vspipe_stderr_output.str());
+			return tl::unexpected<std::string>(vspipe_stderr_output.str());
 		}
 
 		return {};
 	}
 	catch (const boost::system::system_error& e) {
 		u::log_error("Process error: {}", e.what());
-		return tl::unexpected(e.what());
+		return tl::unexpected<std::string>(e.what());
 	}
 }
 
@@ -201,15 +208,15 @@ tl::expected<std::filesystem::path, std::string> FrameRender::render(
 	const std::filesystem::path& input_path, const BlurSettings& settings, const GlobalAppSettings& app_settings
 ) {
 	if (!blur.initialised)
-		return tl::unexpected("Blur未初始化");
+		return tl::unexpected<std::string>("Blur未初始化");
 
 	if (!std::filesystem::exists(input_path)) {
-		return tl::unexpected("输入路径不存在");
+		return tl::unexpected<std::string>("输入路径不存在");
 	}
 
 	if (!create_temp_path()) {
 		u::log("创建临时路径失败");
-		return tl::unexpected("创建临时路径失败");
+		return tl::unexpected<std::string>("创建临时路径失败");
 	}
 
 	std::filesystem::path output_path = m_temp_path / "render.jpg";
@@ -217,11 +224,11 @@ tl::expected<std::filesystem::path, std::string> FrameRender::render(
 	// render
 	auto render_commands = build_render_commands(input_path, output_path, settings, app_settings);
 	if (!render_commands)
-		return tl::unexpected(render_commands.error());
+		return tl::unexpected<std::string>(render_commands.error());
 
 	auto render_res = do_render(*render_commands, settings);
 	if (!render_res)
-		return tl::unexpected(render_res.error());
+		return tl::unexpected<std::string>(render_res.error());
 
 	return output_path;
 }
