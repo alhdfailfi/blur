@@ -1,4 +1,4 @@
-#include "utils.h"
+﻿#include "utils.h"
 #include "common/config_presets.h"
 #include "common/config_app.h"
 
@@ -664,7 +664,7 @@ int u::get_fastest_rife_gpu_index(
 			float elapsed_seconds =
 				std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::steady_clock::now() - start)
 					.count();
-			u::log("gpu {} took {}", gpu_index, elapsed_seconds);
+			u::log("GPU {} 耗时 {} 秒", gpu_index, elapsed_seconds);
 
 			if (elapsed_seconds < fastest_time) {
 				fastest_time = elapsed_seconds;
@@ -672,7 +672,7 @@ int u::get_fastest_rife_gpu_index(
 			}
 		}
 		else {
-			u::log("gpu {} killed early (too slow)", gpu_index);
+			u::log("GPU {} 因过慢提前终止", gpu_index);
 		}
 	}
 
@@ -708,7 +708,7 @@ void u::set_fastest_rife_gpu(BlurSettings& settings) {
 	auto app_config_path = config_app::get_app_config_path();
 	config_app::create(app_config_path, app_config);
 
-	u::log("set rife_gpu_index to the fastest gpu ({})", app_config.rife_gpu_index);
+	u::log("将 rife_gpu_index 设置为最快的 GPU ({})", app_config.rife_gpu_index);
 }
 
 void u::verify_gpu_encoding(BlurSettings& settings) {

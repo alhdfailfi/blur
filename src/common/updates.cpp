@@ -1,4 +1,4 @@
-#include "common/updates.h"
+﻿#include "common/updates.h"
 
 using json = nlohmann::json;
 namespace bp = boost::process;
@@ -63,7 +63,7 @@ tl::expected<updates::UpdateCheckRes, std::string> updates::is_latest_version(bo
 
 	if (response.status_code != 200) {
 		u::log("Update check failed with status {}", response.status_code);
-		return tl::unexpected("Update check failed");
+		return tl::unexpected("更新检查失败");
 	}
 
 	try {
@@ -73,7 +73,7 @@ tl::expected<updates::UpdateCheckRes, std::string> updates::is_latest_version(bo
 
 		if (releases.empty() || !releases.is_array()) {
 			u::log("Update check failed: No releases found");
-			return tl::unexpected("Update check failed");
+			return tl::unexpected("更新检查失败");
 		}
 
 		// get most recent release (needs to have an installer, might make a release without one temporarily - don't
@@ -106,7 +106,7 @@ tl::expected<updates::UpdateCheckRes, std::string> updates::is_latest_version(bo
 
 		if (latest_tag.empty()) {
 			u::log("Update check failed: No suitable release found");
-			return tl::unexpected("Update check failed");
+			return tl::unexpected("更新检查失败");
 		}
 
 		// remove 'v' prefix if it exists
@@ -125,7 +125,7 @@ tl::expected<updates::UpdateCheckRes, std::string> updates::is_latest_version(bo
 	}
 	catch (const std::exception& e) {
 		u::log("Failed to parse latest release JSON: {}", e.what());
-		return tl::unexpected("Update check failed");
+		return tl::unexpected("更新检查失败");
 	}
 }
 
@@ -186,7 +186,7 @@ bool updates::update_to_tag(
 
 				float progress = static_cast<float>(downloaded_bytes) / static_cast<float>(total_bytes);
 				if (progress - last_reported_progress >= 0.01f) {
-					(*progress_callback)(std::format("Downloading update: {:.1f}%", progress * 100.f), false);
+					(*progress_callback)(std::format("正在下载更新: {:.1f}%", progress * 100.f), false);
 					last_reported_progress = progress;
 				}
 
@@ -205,7 +205,7 @@ bool updates::update_to_tag(
 
 		// Complete progress
 		if (progress_callback)
-			(*progress_callback)("Update download complete", true);
+			(*progress_callback)("更新下载完成", true);
 
 		u::log("Download complete, launching installer");
 

@@ -1,4 +1,4 @@
-﻿#include "rendering_frame.h"
+﻿﻿#include "rendering_frame.h"
 
 tl::expected<RenderCommands, std::string> FrameRender::build_render_commands(
 	const std::filesystem::path& input_path,
@@ -201,15 +201,15 @@ tl::expected<std::filesystem::path, std::string> FrameRender::render(
 	const std::filesystem::path& input_path, const BlurSettings& settings, const GlobalAppSettings& app_settings
 ) {
 	if (!blur.initialised)
-		return tl::unexpected("Blur not initialised");
+		return tl::unexpected("Blur未初始化");
 
 	if (!std::filesystem::exists(input_path)) {
-		return tl::unexpected("Input path does not exist");
+		return tl::unexpected("输入路径不存在");
 	}
 
 	if (!create_temp_path()) {
-		u::log("failed to make temp path");
-		return tl::unexpected("Failed to make temp path");
+		u::log("创建临时路径失败");
+		return tl::unexpected("创建临时路径失败");
 	}
 
 	std::filesystem::path output_path = m_temp_path / "render.jpg";

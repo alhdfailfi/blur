@@ -15,7 +15,7 @@ namespace {
 int gui::run() {
 	auto sdl_init_res = sdl::initialise();
 	if (!sdl_init_res) {
-		u::log_error("Error: {}", sdl_init_res.error());
+		u::log_error("错误: {}", sdl_init_res.error());
 		sdl::cleanup();
 		return 1;
 	}

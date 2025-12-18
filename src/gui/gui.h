@@ -1,7 +1,7 @@
 #pragma once
 
 namespace gui {
-	inline tl::expected<void, std::string> initialisation_res = tl::make_unexpected("Not initialised");
+	inline tl::expected<void, std::string> initialisation_res = tl::make_unexpected("未初始化");
 
 	inline bool to_render = true;
 

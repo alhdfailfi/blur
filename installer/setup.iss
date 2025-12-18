@@ -38,14 +38,22 @@ Name: "chinese"; MessagesFile: ".\ChineseSimplified.isl"
 ; 英文消息
 english.AddToPath=Add to PATH
 english.LaunchProgram=Launch %1
+english.AdditionalShortcuts=Additional shortcuts:
+english.CreateDesktopShortcut=Create a desktop shortcut
+english.ApplicationRunning=The application is already running. Please close it before continuing.
+english.InstallingVCRedist=Installing VC++ Redistributables...
 
 ; 中文消息
 chinese.AddToPath=添加到 PATH 环境变量
 chinese.LaunchProgram=运行 %1
+chinese.AdditionalShortcuts=附加快捷方式：
+chinese.CreateDesktopShortcut=创建桌面快捷方式
+chinese.ApplicationRunning=应用程序已在运行。请先关闭它再继续。
+chinese.InstallingVCRedist=正在安装 VC++ 运行库...
 
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: envPath; Description: "{cm:AddToPath}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "desktopicon"; Description: "{cm:CreateDesktopShortcut}"; GroupDescription: "{cm:AdditionalShortcuts}"; Flags: unchecked
+Name: envPath; Description: "{cm:AddToPath}"; GroupDescription: "{cm:AdditionalShortcuts}"; Flags: unchecked
 
 [Files]
 Source: ".\resources\blur-gui.exe"; DestDir: "{app}"; Flags: ignoreversion
@@ -58,7 +66,7 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\blur-gui.exe"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\blur-gui.exe"; Tasks: desktopicon
 
 [Run]
-Filename: "{tmp}\VC_redist.x64.exe"; Parameters: "/install /passive /norestart"; StatusMsg: "正在安装 VC++ 运行库..."; Check: not IsUpdateMode
+Filename: "{tmp}\VC_redist.x64.exe"; Parameters: "/install /passive /norestart"; StatusMsg: "{cm:InstallingVCRedist}"; Check: not IsUpdateMode
 Filename: "{app}\blur-gui.exe"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [Code]

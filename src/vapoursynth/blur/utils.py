@@ -17,11 +17,11 @@ def load_plugins(extension: str):
 
     for plugin in plugin_dir.glob(f"*{extension}"):
         if plugin.name not in ignored:
-            print("Loading", plugin.name)
+            print("正在加载", plugin.name)
             try:
                 core.std.LoadPlugin(path=str(plugin))
             except Exception as e:
-                print(f"Failed to load plugin {plugin.name}: {e}")
+                print(f"加载插件 {plugin.name} 失败: {e}")
 
 
 def safe_int(value):
@@ -39,7 +39,7 @@ def check_model_path(rife_model_path: str):
     path = Path(rife_model_path)
 
     if not path.exists():
-        raise BlurException(f"RIFE model not found at {path}")
+        raise BlurException(f"RIFE 模型未找到: {path}")
 
 
 def assume_scaled_fps(clip, timescale):

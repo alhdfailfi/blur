@@ -124,14 +124,14 @@ if settings["interpolate"]:
             multiplier_str = fps_value[:-1].strip()
             if not multiplier_str:
                 raise u.BlurException(
-                    f"Invalid FPS multiplier {setting_key}: '{fps_value}'. Should be something like 5x."
+                    f"无效的FPS倍数 {setting_key}: '{fps_value}'。应为类似 5x 的格式。"
                 )
 
             try:
                 multiplier = float(multiplier_str)
             except ValueError:
                 raise u.BlurException(
-                    f"Invalid FPS multiplier {setting_key}: '{fps_value}'. Should be something like 5x. Do you have non-number characters before the final x?"
+                    f "无效的FPS倍数 {setting_key}: '{fps_value}'。应为类似 5x 的格式。是否在最后的 x 前有非数字字符？"
                 )
 
             return video.fps * multiplier
@@ -142,7 +142,7 @@ if settings["interpolate"]:
                 return int(fps_value)
             except ValueError:
                 raise u.BlurException(
-                    f"Invalid FPS {setting_key}: '{fps_value}' - failed to parse it as an integer. Is it an integer?"
+                    f"无效的FPS {setting_key}: '{fps_value}' - 无法解析为整数。它是一个整数吗？"
                 )
 
     interpolated_fps = parse_fps_setting("interpolated_fps")
@@ -155,7 +155,7 @@ if settings["interpolate"]:
         ):  # if can be while if rife limits the max interpolation fps, but i don't think it does
             old_fps = video.fps
 
-            print(f"pre-interpolating to {pre_interpolated_fps}")
+            print(f"预插值到 {pre_interpolated_fps}")
 
             video = blur.interpolate.interpolate_rife(
                 video,
@@ -167,12 +167,12 @@ if settings["interpolate"]:
 
             fps_added = video.fps - old_fps
             print(
-                f"added {fps_added} (interp: {pre_interpolated_fps}. video.fps: {video.fps}/{pre_interpolated_fps})"
+                f"已添加 {fps_added} (插值: {pre_interpolated_fps}. 视频FPS: {video.fps}/{pre_interpolated_fps})"
             )
 
     if video.fps < interpolated_fps:
         print(
-            f"interpolating to {interpolated_fps} with {settings['interpolation_method']}"
+            f"使用 {settings['interpolation_method']} 插值到 {interpolated_fps}"
         )
         old_fps = video.fps
 
@@ -224,7 +224,7 @@ if settings["interpolate"]:
 
         fps_added = video.fps - old_fps
         print(
-            f"added {fps_added} (interp: {interpolated_fps}. video.fps: {video.fps}/{interpolated_fps})"
+            f"已添加 {fps_added} (插值: {interpolated_fps}. 视频FPS: {video.fps}/{interpolated_fps})"
         )
 
 # output timescale

@@ -14,7 +14,7 @@ void config_presets::create(const std::filesystem::path& filepath, const PresetS
 	std::ofstream output(filepath);
 
 	output << "[blur v" << BLUR_VERSION << "]" << "\n";
-	output << "* = default preset, cannot be modified" << "\n";
+	output << "* = 默认预设，不可修改" << "\n";
 
 	for (const auto& gpu_presets : current_settings.all_gpu_presets) {
 		output << "\n";
@@ -215,7 +215,7 @@ tl::expected<std::string, std::string> config_presets::extract_codec_from_args(
 		}
 	}
 
-	return tl::unexpected("no codec found");
+	return tl::unexpected("未找到编解码器");
 }
 
 config_presets::QualityConfig config_presets::get_quality_config(const std::string& codec) {
@@ -226,43 +226,43 @@ config_presets::QualityConfig config_presets::get_quality_config(const std::stri
 		// NVIDIA NVENC
 		config.min_quality = 0;
 		config.max_quality = 51;
-		config.quality_label = "(0: lossless, 23: balanced, 51: worst)";
+		config.quality_label = "(0: 无损, 23: 平衡, 51: 最差)";
 	}
 	else if (codec == "h264_amf" || codec == "hevc_amf" || codec == "av1_amf") {
 		// AMD AMF
 		config.min_quality = 0;
 		config.max_quality = 51;
-		config.quality_label = "(0: best, 23: balanced, 51: worst)";
+		config.quality_label = "(0: 最好, 23: 平衡, 51: 最差)";
 	}
 	else if (codec == "h264_qsv" || codec == "hevc_qsv" || codec == "av1_qsv") {
 		// Intel QSV
 		config.min_quality = 1;
 		config.max_quality = 51;
-		config.quality_label = "(1: best, 23: balanced, 51: worst)";
+		config.quality_label = "(1: 最好, 23: 平衡, 51: 最差)";
 	}
 	else if (codec == "h264_videotoolbox" || codec == "hevc_videotoolbox" || codec == "av1_videotoolbox") {
 		// Mac VideoToolbox H264/H265/AV1
 		config.min_quality = 0;
 		config.max_quality = 100;
-		config.quality_label = "(100: best, 0: worst)"; // todo: add balanced when i know what a good value is
+		config.quality_label = "(100: 最好, 0: 最差)"; // todo: add balanced when i know what a good value is
 	}
 	else if (codec == "prores_videotoolbox") {
 		// Mac ProRes
 		config.min_quality = 0;
 		config.max_quality = 4;
-		config.quality_label = "(0: proxy, 1: lt, 2: std, 3: hq, 4: 4444xq)";
+		config.quality_label = "(0: 代理, 1: 轻量, 2: 标准, 3: 高质量, 4: 4444超高质量)";
 	}
 	else if (codec == "libx264" || codec == "libx265") {
 		// CPU x264/x265
 		config.min_quality = 0;
 		config.max_quality = 51;
-		config.quality_label = "(0: lossless, 23: balanced, 51: worst)";
+		config.quality_label = "(0: 无损, 23: 平衡, 51: 最差)";
 	}
 	else if (codec == "libaom-av1" || codec == "libvpx-vp9") {
 		// CPU AV1/VP9
 		config.min_quality = 15;
 		config.max_quality = 50;
-		config.quality_label = "(15: best, 30: balanced, 50: worst)";
+		config.quality_label = "(15: 最好, 30: 平衡, 50: 最差)";
 	}
 	else {
 		// Fallback

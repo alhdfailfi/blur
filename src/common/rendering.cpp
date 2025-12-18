@@ -1,4 +1,4 @@
-﻿#include "rendering.h"
+﻿﻿#include "rendering.h"
 #include "config_presets.h"
 #include "utils.h"
 
@@ -27,11 +27,11 @@ bool Rendering::render_next_video() {
 
 		if (!render_result) {
 			u::log(render_result.error());
-			u::log("Failed to render {}", render->get_video_name());
+			u::log("渲染 {} 失败", render->get_video_name());
 		}
 	}
 	catch (const std::exception& e) {
-		u::log("Render exception: {}", e.what());
+		u::log("渲染异常: {}", e.what());
 	}
 
 	rendering.call_render_finished_callback(
@@ -510,7 +510,7 @@ tl::expected<RenderResult, std::string> Render::do_render(RenderCommands render_
 			if (m_to_kill) {
 				ffmpeg_process.terminate();
 				vspipe_process.terminate();
-				DEBUG_LOG("render: killed processes early");
+				DEBUG_LOG("渲染: 提前终止进程");
 				killed = true;
 				m_to_kill = false;
 			}
@@ -530,7 +530,7 @@ tl::expected<RenderResult, std::string> Render::do_render(RenderCommands render_
 
 		if (m_settings.advanced.debug)
 			u::log(
-				"vspipe exit code: {}, ffmpeg exit code: {}", vspipe_process.exit_code(), ffmpeg_process.exit_code()
+				"vspipe 退出代码: {}, ffmpeg 退出代码: {}", vspipe_process.exit_code(), ffmpeg_process.exit_code()
 			);
 
 		if (killed) {
@@ -546,12 +546,12 @@ tl::expected<RenderResult, std::string> Render::do_render(RenderCommands render_
 
 		std::chrono::duration<float> elapsed_time = std::chrono::steady_clock::now() - m_status.start_time;
 		float elapsed_seconds = elapsed_time.count();
-		u::log("render finished in {:.2f}s", elapsed_seconds);
+		u::log("渲染完成，用时 {:.2f}秒", elapsed_seconds);
 
 		if (vspipe_process.exit_code() != 0 || ffmpeg_process.exit_code() != 0) {
 			return tl::unexpected(
 				std::format(
-					"--- [vspipe] ---\n{}\n--- [ffmpeg] ---\n{}", vspipe_stderr_output.str(), ffmpeg_stderr_output.str()
+					"--- [vspipe 错误] ---\n{}\n--- [ffmpeg 错误] ---\n{}", vspipe_stderr_output.str(), ffmpeg_stderr_output.str()
 				)
 			);
 		}
@@ -565,7 +565,7 @@ tl::expected<RenderResult, std::string> Render::do_render(RenderCommands render_
 		m_vspipe_pid = -1;
 		m_ffmpeg_pid = -1;
 
-		u::log_error("Process error: {}", e.what());
+		u::log_error("进程错误: {}", e.what());
 		return tl::unexpected(e.what());
 	}
 }
@@ -589,7 +589,7 @@ void Render::pause() {
 
 	m_status.on_pause();
 
-	u::log("Render paused");
+	u::log("渲染已暂停");
 }
 
 void Render::resume() {
@@ -609,29 +609,29 @@ void Render::resume() {
 
 	m_paused = false;
 
-	u::log("Render resumed");
+	u::log("渲染已恢复");
 }
 
 tl::expected<RenderResult, std::string> Render::render() {
 	if (!blur.initialised)
-		return tl::unexpected("Blur not initialised");
+		return tl::unexpected("Blur未初始化");
 
-	u::log("Rendering '{}'\n", m_video_name);
+	u::log("正在渲染 '{}'\n", m_video_name);
 
 	if (blur.verbose) {
-		u::log("Render settings:");
-		u::log("Source video at {:.2f} timescale", m_settings.input_timescale);
+		u::log("渲染设置:");
+		u::log("源视频时间尺度 {:.2f}", m_settings.input_timescale);
 		if (m_settings.interpolate)
 			u::log(
-				"Interpolated to {}fps with {:.2f} timescale", m_settings.interpolated_fps, m_settings.output_timescale
+				"插值到 {} 帧/秒，时间尺度 {:.2f}", m_settings.interpolated_fps, m_settings.output_timescale
 			);
 		if (m_settings.blur)
 			u::log(
-				"Motion blurred to {}fps ({}%)",
+				"运动模糊到 {} 帧/秒 ({}%)",
 				m_settings.blur_output_fps,
 				static_cast<int>(m_settings.blur_amount * 100)
 			);
-		u::log("Rendered at {:.2f} speed with crf {}", m_settings.output_timescale, m_settings.quality);
+		u::log("以 {:.2f} 倍速渲染，crf {}", m_settings.output_timescale, m_settings.quality);
 	}
 
 	// start preview
@@ -648,7 +648,7 @@ tl::expected<RenderResult, std::string> Render::render() {
 
 	auto render = do_render(*render_commands);
 	if (!render) {
-		u::log("Failed to render '{}'", m_video_name);
+		u::log("渲染 '{}' 失败", m_video_name);
 
 		if (blur.verbose || m_settings.advanced.debug) {
 			u::log(render.error());
@@ -656,12 +656,12 @@ tl::expected<RenderResult, std::string> Render::render() {
 	}
 	else {
 		if (render->stopped) {
-			u::log("Stopped render '{}'", m_video_name);
+			u::log("已停止渲染 '{}'", m_video_name);
 			std::filesystem::remove(m_output_path);
 		}
 		else {
 			if (blur.verbose) {
-				u::log("Finished rendering '{}'", m_video_name);
+				u::log("完成渲染 '{}'", m_video_name);
 			}
 
 			if (m_settings.copy_dates) {
@@ -670,11 +670,11 @@ tl::expected<RenderResult, std::string> Render::render() {
 					std::filesystem::last_write_time(m_output_path, input_time);
 
 					if (m_settings.advanced.debug) {
-						u::log("Set output file modified time to match input file");
+						u::log("设置输出文件修改时间以匹配输入文件");
 					}
 				}
 				catch (const std::exception& e) {
-					u::log_error("Failed to set output file timestamp: {}", e.what());
+					u::log_error("设置输出文件时间戳失败: {}", e.what());
 				}
 			}
 		}
@@ -690,7 +690,7 @@ void Rendering::stop_renders_and_wait() {
 	auto current_render = get_current_render();
 	if (current_render) {
 		(*current_render)->stop();
-		u::log("Stopping current render");
+		u::log("正在停止当前渲染");
 	}
 
 	// wait for current render to finish
@@ -703,11 +703,11 @@ void RenderStatus::update_progress_string(bool first) {
 	float progress = current_frame / (float)total_frames;
 
 	if (first) {
-		progress_string = std::format("{:.1f}% complete ({}/{})", progress * 100, current_frame, total_frames);
+		progress_string = std::format("{:.1f}% 完成 ({}/{})", progress * 100, current_frame, total_frames);
 	}
 	else {
 		progress_string =
-			std::format("{:.1f}% complete ({}/{}, {:.2f} fps)", progress * 100, current_frame, total_frames, fps);
+			std::format("{:.1f}% 完成 ({}/{}, {:.2f} 帧/秒)", progress * 100, current_frame, total_frames, fps);
 	}
 }
 

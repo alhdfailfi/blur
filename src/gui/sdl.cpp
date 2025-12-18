@@ -17,7 +17,7 @@ tl::expected<void, std::string> sdl::initialise() {
 	); // allows the screen to auto sleep. WHY IS THIS DISABLED BY DEFAULT?
 
 	if (!SDL_Init(SDL_INIT_VIDEO))
-		return tl::unexpected("SDL initialization failed");
+		return tl::unexpected( "SDL 初始化失败");
 
 	// Initialise notification system
 	auto config = config_app::get_app_config();
@@ -59,10 +59,10 @@ tl::expected<void, std::string> sdl::initialise() {
 
 	// create sdl window
 	window =
-		SDL_CreateWindow("Blur", 591, 381, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+		SDL_CreateWindow("Blur(由B站UP主shgvge汉化)", 591, 381, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
 
 	if (!window)
-		return tl::unexpected("Failed to create SDL window");
+		return tl::unexpected("创建 SDL 窗口失败");
 
 	SDL_SetWindowMinimumSize(window, 450, 250);
 
@@ -74,11 +74,11 @@ tl::expected<void, std::string> sdl::initialise() {
 	// create opengl context
 	gl_context = SDL_GL_CreateContext(window);
 	if (!gl_context)
-		return tl::unexpected("Failed to create SDL GL context");
+		return tl::unexpected("创建 SDL GL 上下文失败");
 
 	if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) { // NOLINT(cppcoreguidelines-pro-type-cstyle-cast)
 		                                                          // ^ c lib
-		return tl::unexpected("Failed to initialise GLAD");
+		return tl::unexpected("初始化 GLAD 失败");
 	}
 
 	SDL_GL_MakeCurrent(window, gl_context);
@@ -86,7 +86,7 @@ tl::expected<void, std::string> sdl::initialise() {
 	SDL_ShowWindow(window);
 
 	if (!render::init(window, gl_context))
-		return tl::unexpected("Failed to initialise rendering");
+		return tl::unexpected( "初始化渲染失败");
 
 	return {};
 }

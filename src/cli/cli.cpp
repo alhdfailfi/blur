@@ -11,28 +11,28 @@ bool cli::run(
 ) {
 	auto init_res = blur.initialise(verbose, preview);
 	if (!init_res) { // todo: preview in cli
-		u::log("Blur failed to initialise");
-		u::log("Reason: {}", init_res.error());
+		u::log("Blur 初始化失败");
+		u::log("原因: {}", init_res.error());
 		return false;
 	}
 
 	if (!disable_update_check) {
 		auto update_res = Blur::check_updates();
 		if (update_res && !update_res->is_latest) {
-			u::log("There's a newer version ({}) available at {}!", update_res->latest_tag, update_res->latest_tag_url);
+			u::log("有新版本 ({}) 可用，下载地址: {}!", update_res->latest_tag, update_res->latest_tag_url);
 		}
 	}
 
 	bool manual_output_files = !outputs.empty();
 	if (manual_output_files && inputs.size() != outputs.size()) {
-		u::log("Input/output filename count mismatch ({} inputs, {} outputs).", inputs.size(), outputs.size());
+		u::log("输入/输出文件数量不匹配 ({} 个输入, {} 个输出)。", inputs.size(), outputs.size());
 		return false;
 	}
 
 	bool manual_config_files = !config_paths.empty();
 	if (manual_config_files && inputs.size() != config_paths.size()) {
 		u::log(
-			"Input filename/config paths count mismatch ({} inputs, {} config paths).",
+			 "输入文件/配置文件路径数量不匹配 ({} 个输入, {} 个配置文件路径)。",
 			inputs.size(),
 			config_paths.size()
 		);
@@ -43,7 +43,7 @@ bool cli::run(
 		for (const auto& path : config_paths) {
 			if (!std::filesystem::exists(path)) {
 				// TODO: test printing works with unicode
-				u::log("Specified config file path '{}' not found.", path);
+				u::log("指定的配置文件路径 '{}' 未找到。", path);
 				return false;
 			}
 		}
@@ -54,7 +54,7 @@ bool cli::run(
 
 		if (!std::filesystem::exists(input_path)) {
 			// TODO: test with unicode
-			u::log("Video '{}' was not found (wrong path?)", input_path);
+			u::log("视频 '{}' 未找到（路径错误？）", input_path);
 			continue;
 		}
 
@@ -62,7 +62,7 @@ bool cli::run(
 
 		auto video_info = u::get_video_info(input_path);
 		if (!video_info.has_video_stream) {
-			u::log("Video '{}' is not a valid video or is unreadable", input_path);
+			u::log("视频 '{}' 不是有效的视频文件或无法读取", input_path);
 			continue;
 		}
 
@@ -85,7 +85,7 @@ bool cli::run(
 
 		if (blur.verbose) {
 			u::log(
-				"Queued '{}' for render, outputting to '{}'", render.get_video_name(), render.get_output_video_path()
+				"已排队 '{}' 等待渲染，输出到 '{}'", render.get_video_name(), render.get_output_video_path()
 			);
 		}
 	}
@@ -94,7 +94,7 @@ bool cli::run(
 	while (!blur.exiting && rendering.render_next_video())
 		;
 
-	u::log("Finished rendering");
+	u::log("渲染完成");
 
 	return true;
 }

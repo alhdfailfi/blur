@@ -10,7 +10,7 @@ import blur.utils as u
 
 
 class InvalidCustomWeighting(Exception):
-    def __init__(self, message="Invalid custom weighting function!"):
+    def __init__(self, message="自定义权重函数无效！"):
         self.message = message
         super().__init__(self.message)
 
@@ -70,9 +70,9 @@ def gaussian(
         bound: x-axis range [start, end]
     """
     if len(bound) < 2:
-        raise ValueError(f"bound must have length 2, got {bound}")
+        raise ValueError(f"bound 参数长度必须为2，实际为 {bound}")
     if len(bound) > 2:
-        warnings.warn(f"Using only first 2 values from bound {bound}")
+        warnings.warn(f"仅使用 bound 参数的前两个值: {bound}")
 
     x_vals = scale_range(frames, bound[0], bound[1])
     weights = [
@@ -188,5 +188,5 @@ def parse(
                 return divide(blur_frames, weights)
             except (ValueError, AttributeError):
                 raise u.BlurException(
-                    f"Invalid blur weighting type: {weighting_type}. Valid options are: 'equal', 'gaussian_sym', 'vegas', 'pyramid', 'gaussian', 'ascending', 'descending', 'gaussian_reverse', or a comma-separated list of custom weights (e.g. '1, 2, 3, 2, 1')."
+                    f"无效的模糊权重类型: {weighting_type}。有效选项为: 'equal', 'gaussian_sym', 'vegas', 'pyramid', 'gaussian', 'ascending', 'descending', 'gaussian_reverse', 或者以逗号分隔的自定义权重列表（例如 '1, 2, 3, 2, 1'）。"
                 )

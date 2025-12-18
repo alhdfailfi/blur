@@ -50,7 +50,7 @@ void tasks::run(const std::vector<std::string>& arguments) {
 
 #if defined(WIN32) || defined(__APPLE__)
 		gui::components::notifications::add(
-			std::format("There's a newer version ({}) available! Click to run the installer.", update_res->latest_tag),
+			std::format("有新版本 ({}) 可用！点击运行安装程序。", update_res->latest_tag),
 			ui::NotificationType::INFO,
 			[&](const std::string& id) {
 				gui::components::notifications::close(id);
@@ -59,7 +59,7 @@ void tasks::run(const std::vector<std::string>& arguments) {
 
 				gui::components::notifications::add(
 					update_notification_id,
-					"Downloading update...",
+					"正在下载更新...",
 					ui::NotificationType::INFO,
 					{},
 					std::chrono::duration<float>(gui::components::notifications::NOTIFICATION_LENGTH),
@@ -86,7 +86,7 @@ void tasks::run(const std::vector<std::string>& arguments) {
 #else
 		gui::components::notifications::add(
 			std::format(
-				"There's a newer version ({}) available! Click to go to the download page.", update_res->latest_tag
+				"有新版本 ({}) 可用！点击前往下载页面。", update_res->latest_tag
 			),
 			ui::NotificationType::INFO,
 			[&](const std::string& id) {
@@ -136,7 +136,7 @@ void tasks::add_files(const std::vector<std::filesystem::path>& path_strs) {
 
 		if (gui::renderer::screen != gui::renderer::Screens::MAIN) {
 			gui::components::notifications::add(
-				std::format("Queued '{}' for rendering", path.filename()), ui::NotificationType::INFO
+				std::format("已排队 '{}' 等待渲染", path.filename()), ui::NotificationType::INFO
 			);
 		}
 
@@ -165,7 +165,7 @@ void tasks::process_pending_files() {
 
 		if (!video_info.has_video_stream) {
 			gui::components::notifications::add(
-				std::format("File is not a valid video or is unreadable: {}", render.get_input_video_path()),
+				std::format("文件不是有效的视频或无法读取：{}", render.get_input_video_path()),
 				ui::NotificationType::NOTIF_ERROR
 			);
 			continue;
@@ -174,7 +174,7 @@ void tasks::process_pending_files() {
 		if (app_config.notify_about_config_override) {
 			if (!render.is_global_config())
 				gui::components::notifications::add(
-					"Using override config from video folder", ui::NotificationType::INFO
+					"使用视频文件夹中的覆盖配置", ui::NotificationType::INFO
 				);
 		}
 
@@ -192,7 +192,7 @@ void tasks::add_sample_video(const std::filesystem::path& path_str) {
 	// todo: reencode?
 	std::filesystem::copy(path, sample_video_path);
 
-	gui::components::notifications::add("Added sample video", ui::NotificationType::SUCCESS);
+	gui::components::notifications::add("已添加示例视频", ui::NotificationType::SUCCESS);
 
 	gui::components::configs::just_added_sample_video = true;
 }
