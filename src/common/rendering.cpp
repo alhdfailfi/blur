@@ -1,709 +1,740 @@
-﻿﻿#include "rendering.h"
+#include "rendering.h"
 #include "config_presets.h"
 #include "utils.h"
+#include "config_app.h"
+#include "config_blur.h"
+#include "blur.h"
 
 #ifdef __linux__
-#	include "config_app.h"
+#   include "config_app.h"
 #endif
 
+#include <tl/expected.hpp>
+#include <filesystem>
+#include <fstream>
+#include <regex>
+#include <numeric>
+#include <atomic>
+#include <thread>
+#include <chrono>
+#include <format>
+#include <boost/process.hpp>
+#include <boost/asio.hpp>
+#include <sstream>
+
 bool Rendering::render_next_video() {
-	if (m_queue.empty())
-		return false;
+    if (m_queue.empty())
+        return false;
 
-	auto& render = m_queue.front();
-	auto* render_ptr = render.get();
+    auto& render = m_queue.front();
+    auto* render_ptr = render.get();
 
-	lock();
-	{
-		m_current_render_id = render->get_render_id();
-	}
-	unlock();
+    lock();
+    {
+        m_current_render_id = render->get_render_id();
+    }
+    unlock();
 
-	rendering.call_progress_callback();
+    rendering.call_progress_callback();
 
-	tl::expected<RenderResult, std::string> render_result;
-	try {
-		render_result = render->render();
+    tl::expected<RenderResult, std::string> render_result;
+    try {
+        render_result = render->render();
 
-		if (!render_result) {
-			u::log(render_result.error());
-			u::log("渲染失败 {}", render->get_video_name());
-		}
-	}
-	catch (const std::exception& e) {
-		u::log("渲染异常: {}", e.what());
-	}
+        if (!render_result) {
+            u::log(render_result.error());
+            u::log("渲染失败 {}", render->get_video_name());
+        }
+    }
+    catch (const std::exception& e) {
+        u::log("渲染异常: {}", e.what());
+    }
 
-	rendering.call_render_finished_callback(
-		render_ptr, render_result
-	); // 注意：不能在这里使用render.get()，因为编译器优化会以某种方式破坏它（真有趣）
+    rendering.call_render_finished_callback(
+        render_ptr, render_result
+    ); // 注意：不能在这里使用render.get()，因为编译器优化会以某种方式破坏它（真有趣）
 
-	// 渲染完成，删除任务
-	lock();
-	{
-		m_queue.erase(m_queue.begin());
-		m_current_render_id.reset();
-	}
-	unlock();
+    // 渲染完成，删除任务
+    lock();
+    {
+        m_queue.erase(m_queue.begin());
+        m_current_render_id.reset();
+    }
+    unlock();
 
-	rendering.call_progress_callback();
+    rendering.call_progress_callback();
 
-	return true;
+    return true;
 }
 
 Render& Rendering::queue_render(Render&& render) {
-	lock();
-	auto& added = *m_queue.emplace_back(std::make_unique<Render>(std::move(render)));
-	unlock();
+    lock();
+    auto& added = *m_queue.emplace_back(std::make_unique<Render>(std::move(render)));
+    unlock();
 
-	return added;
+    return added;
 }
 
 void Render::build_output_filename() {
-	auto output_folder = this->m_video_folder / this->m_app_settings.output_prefix;
-	std::filesystem::create_directories(output_folder);
+    auto output_folder = m_video_folder / m_app_settings.output_prefix;
+    std::filesystem::create_directories(output_folder);
 
-	// 构建输出文件名
-	int num = 1;
-	do {
-		std::string output_filename = this->m_video_name + " - blur";
+    // 构建输出文件名
+    int num = 1;
+    do {
+        std::string output_filename = m_video_name + " - blur";
 
-		if (this->m_settings.detailed_filenames) {
-			std::string extra_details;
+        if (m_settings.detailed_filenames) {
+            std::string extra_details;
 
-			// 愚蠢的
-			if (this->m_settings.blur) {
-				if (this->m_settings.interpolate) {
-					extra_details = std::format(
-						"{}fps ({}, {})",
-						this->m_settings.blur_output_fps,
-						this->m_settings.interpolated_fps,
-						this->m_settings.blur_amount
-					);
-				}
-				else {
-					extra_details =
-						std::format("{}fps ({})", this->m_settings.blur_output_fps, this->m_settings.blur_amount);
-				}
-			}
-			else {
-				if (this->m_settings.interpolate) {
-					extra_details = std::format("{}fps", this->m_settings.interpolated_fps);
-				}
-			}
+            // 愚蠢的
+            if (m_settings.blur) {
+                if (m_settings.interpolate) {
+                    extra_details = std::format(
+                        "{}fps ({}, {})",
+                        m_settings.blur_output_fps,
+                        m_settings.interpolated_fps,
+                        m_settings.blur_amount
+                    );
+                }
+                else {
+                    extra_details =
+                        std::format("{}fps ({})", m_settings.blur_output_fps, m_settings.blur_amount);
+                }
+            }
+            else {
+                if (m_settings.interpolate) {
+                    extra_details = std::format("{}fps", m_settings.interpolated_fps);
+                }
+            }
 
-			if (extra_details != "") {
-				output_filename += " ~ " + extra_details;
-			}
-		}
+            if (extra_details != "") {
+                output_filename += " ~ " + extra_details;
+            }
+        }
 
-		if (num > 1)
-			output_filename += std::format(" ({})", num);
+        if (num > 1)
+            output_filename += std::format(" ({})", num);
 
-		output_filename += "." + this->m_settings.advanced.video_container;
+        output_filename += "." + m_settings.advanced.video_container;
 
-		this->m_output_path = output_folder / output_filename;
+        m_output_path = output_folder / output_filename;
 
-		num++;
-	}
-	while (std::filesystem::exists(this->m_output_path));
+        num++;
+    }
+    while (std::filesystem::exists(m_output_path));
 }
 
 Render::Render(
-	std::filesystem::path input_path,
-	u::VideoInfo video_info,
-	const std::optional<std::filesystem::path>& output_path,
-	const std::optional<std::filesystem::path>& config_path
+    std::filesystem::path input_path,
+    u::VideoInfo video_info,
+    const std::optional<std::filesystem::path>& output_path,
+    const std::optional<std::filesystem::path>& config_path
 )
-	: m_video_path(std::move(input_path)), m_video_info(std::move(video_info)) {
-	// 设置ID 注意：这傻吗？看起来很优雅，但我可能遗漏了一些边缘情况
-	static uint32_t current_render_id = 1; // 0表示空
-	m_render_id = current_render_id++;
+    : m_render_id(0),
+      m_video_path(std::move(input_path)),
+      m_video_info(std::move(video_info)),
+      m_to_kill(false),
+      m_paused(false),
+      m_vspipe_pid(-1),
+      m_ffmpeg_pid(-1),
+      m_is_global_config(false) {
+    
+    // 设置ID
+    static uint32_t current_render_id = 1; // 0表示空
+    m_render_id = current_render_id++;
 
 #ifdef WIN32
-	this->m_video_name = u::tostring(this->m_video_path.stem().wstring());
+    m_video_name = u::tostring(m_video_path.stem().wstring());
 #else
-	this->m_video_name = this->m_video_path.stem();
+    m_video_name = m_video_path.stem().string();
 #endif
 
-	this->m_video_folder = this->m_video_path.parent_path();
+    m_video_folder = m_video_path.parent_path();
 
-	// 解析配置文件（现在执行，而不是渲染时。适用于用不同设置批量渲染同一文件）
-	auto config_res = config_blur::get_config(
-		config_path.has_value() ? output_path.value() : config_blur::get_config_filename(m_video_folder),
-		!config_path.has_value() // 仅当未指定配置文件路径时使用全局配置
-	);
+    // 解析配置文件
+    std::filesystem::path config_file;
+    if (config_path.has_value()) {
+        config_file = config_path.value();
+    } else {
+        config_file = config_blur::get_config_filename(m_video_folder);
+    }
 
-	this->m_settings = config_res.config;
-	this->m_is_global_config = config_res.is_global;
+    bool use_global_config = !config_path.has_value();
+    auto config_res = config_blur::get_config(config_file, use_global_config);
 
-	this->m_app_settings = config_app::get_app_config();
+    m_settings = config_res.config;
+    m_is_global_config = config_res.is_global;
 
-	if (output_path.has_value())
-		this->m_output_path = output_path.value();
-	else {
-		// 注意：这使用设置，所以必须在设置加载后调用
-		build_output_filename();
-	}
+    m_app_settings = config_app::get_app_config();
+
+    if (output_path.has_value())
+        m_output_path = output_path.value();
+    else {
+        // 注意：这使用设置，所以必须在设置加载后调用
+        build_output_filename();
+    }
 }
 
 bool Render::create_temp_path() {
-	size_t out_hash = std::hash<std::filesystem::path>()(m_output_path);
+    size_t out_hash = std::hash<std::filesystem::path>()(m_output_path);
 
-	auto temp_path = blur.create_temp_path(std::to_string(out_hash));
+    auto temp_path = blur.create_temp_path(std::to_string(out_hash));
 
-	if (temp_path)
-		m_temp_path = *temp_path;
+    if (temp_path)
+        m_temp_path = *temp_path;
 
-	return temp_path.has_value();
+    return temp_path.has_value();
 }
 
 bool Render::remove_temp_path() {
-	return Blur::remove_temp_path(m_temp_path);
+    return Blur::remove_temp_path(m_temp_path);
 }
 
 // 待办：重构
 tl::expected<RenderCommands, std::string> Render::build_render_commands() {
-	RenderCommands commands;
+    RenderCommands commands;
 
-	std::filesystem::path blur_script_path = (blur.resources_path / "lib/blur.py");
+    std::filesystem::path blur_script_path = (blur.resources_path / "lib/blur.py");
 
-	auto settings_json = m_settings.to_json();
-	if (!settings_json)
-		return tl::unexpected(settings_json.error());
+    auto settings_json = m_settings.to_json();
+    if (!settings_json)
+        return tl::unexpected(settings_json.error());
 
-	auto app_settings_json = m_app_settings.to_json();
-	if (!app_settings_json)
-		return tl::unexpected(app_settings_json.error());
+    auto app_settings_json = m_app_settings.to_json();
+    if (!app_settings_json)
+        return tl::unexpected(app_settings_json.error());
 
-	settings_json->update(*app_settings_json); // 从应用设置添加新键（并覆盖重复项）
+    settings_json->update(*app_settings_json); // 从应用设置添加新键（并覆盖重复项）
 
 #if defined(__linux__)
-	bool vapoursynth_plugins_bundled = std::filesystem::exists(blur.resources_path / "vapoursynth-plugins");
+    bool vapoursynth_plugins_bundled = std::filesystem::exists(blur.resources_path / "vapoursynth-plugins");
 #endif
 
-	std::wstring path_string = m_video_path.wstring();
-	std::ranges::replace(path_string, '\\', '/');
+    std::wstring path_string = m_video_path.wstring();
+    std::ranges::replace(path_string, '\\', '/');
 
-	// 构建vspipe命令
-	commands.vspipe = { L"-p",
-		                L"-c",
-		                L"y4m",
-		                L"-a",
-		                L"video_path=" + path_string,
-		                L"-a",
-		                std::format(L"fps_num={}", m_video_info.fps_num),
-		                L"-a",
-		                std::format(L"fps_den={}", m_video_info.fps_den),
-		                L"-a",
-		                L"color_range=" +
-		                    (m_video_info.color_range ? u::towstring(*m_video_info.color_range) : L"undefined"),
-		                L"-a",
-		                L"settings=" + u::towstring(settings_json->dump()),
+    // 构建vspipe命令
+    commands.vspipe = { L"-p",
+                        L"-c",
+                        L"y4m",
+                        L"-a",
+                        L"video_path=" + path_string,
+                        L"-a",
+                        std::format(L"fps_num={}", m_video_info.fps_num),
+                        L"-a",
+                        std::format(L"fps_den={}", m_video_info.fps_den),
+                        L"-a",
+                        L"color_range=" +
+                            (m_video_info.color_range ? u::towstring(*m_video_info.color_range) : L"undefined"),
+                        L"-a",
+                        L"settings=" + u::towstring(settings_json->dump()),
 #if defined(__APPLE__)
-		                L"-a",
-		                std::format(L"macos_bundled={}", blur.used_installer ? L"true" : L"false"),
+                        L"-a",
+                        std::format(L"macos_bundled={}", blur.used_installer ? L"true" : L"false"),
 #endif
 #if defined(_WIN32)
-		                L"-a",
-		                L"enable_lsmash=true",
+                        L"-a",
+                        L"enable_lsmash=true",
 #endif
 #if defined(__linux__)
-		                L"-a",
-		                std::format(L"linux_bundled={}", vapoursynth_plugins_bundled ? L"true" : L"false"),
+                        L"-a",
+                        std::format(L"linux_bundled={}", vapoursynth_plugins_bundled ? L"true" : L"false"),
 #endif
-		                blur_script_path.wstring(),
-		                L"-" };
+                        blur_script_path.wstring(),
+                        L"-" };
 
-	// 构建ffmpeg命令
-	commands.ffmpeg = { L"-loglevel",
-		                L"error",
-		                L"-hide_banner",
-		                L"-stats",
-		                L"-y",
-		                L"-i",
-		                L"-", // 从视频脚本管道输出
-		                L"-fflags",
-		                L"+genpts",
-		                L"-i",
-		                m_video_path.wstring(), // 原始视频（用于音频）
-		                L"-map",
-		                L"0:v",
-		                L"-map",
-		                L"1:a?" };
+    // 构建ffmpeg命令
+    commands.ffmpeg = { L"-loglevel",
+                        L"error",
+                        L"-hide_banner",
+                        L"-stats",
+                        L"-y",
+                        L"-i",
+                        L"-", // 从视频脚本管道输出
+                        L"-fflags",
+                        L"+genpts",
+                        L"-i",
+                        m_video_path.wstring(), // 原始视频（用于音频）
+                        L"-map",
+                        L"0:v",
+                        L"-map",
+                        L"1:a?" };
 
-	// 处理色彩元数据标记
-	//（vspipe会剥离这些输入信息，需要手动定义以便ffmpeg知道）
-	std::vector<std::string> params;
+    // 处理色彩元数据标记
+    //（vspipe会剥离这些输入信息，需要手动定义以便ffmpeg知道）
+    std::vector<std::string> params;
 
-	if (m_video_info.color_range) {
-		std::string range = *m_video_info.color_range == "pc" ? "full" : "limited";
-		params.emplace_back("range=" + range);
-	}
+    if (m_video_info.color_range) {
+        std::string range = *m_video_info.color_range == "pc" ? "full" : "limited";
+        params.emplace_back("range=" + range);
+    }
 
-	if (m_video_info.color_space) {
-		params.emplace_back("colorspace=" + *m_video_info.color_space);
-	}
+    if (m_video_info.color_space) {
+        params.emplace_back("colorspace=" + *m_video_info.color_space);
+    }
 
-	if (m_video_info.color_transfer) {
-		params.emplace_back("color_trc=" + *m_video_info.color_transfer);
-	}
+    if (m_video_info.color_transfer) {
+        params.emplace_back("color_trc=" + *m_video_info.color_transfer);
+    }
 
-	if (m_video_info.color_primaries) {
-		params.emplace_back("color_primaries=" + *m_video_info.color_primaries);
-	}
+    if (m_video_info.color_primaries) {
+        params.emplace_back("color_primaries=" + *m_video_info.color_primaries);
+    }
 
-	if (!params.empty()) {
-		std::string setparams_filter = "setparams=";
-		for (size_t i = 0; i < params.size(); ++i) {
-			if (i > 0)
-				setparams_filter += ":";
-			setparams_filter += params[i];
-		}
+    if (!params.empty()) {
+        std::string setparams_filter = "setparams=";
+        for (size_t i = 0; i < params.size(); ++i) {
+            if (i > 0)
+                setparams_filter += ":";
+            setparams_filter += params[i];
+        }
 
-		commands.ffmpeg.emplace_back(L"-vf");
-		commands.ffmpeg.emplace_back(u::towstring(setparams_filter));
-	}
+        commands.ffmpeg.emplace_back(L"-vf");
+        commands.ffmpeg.emplace_back(u::towstring(setparams_filter));
+    }
 
-	if (m_video_info.pix_fmt) {
-		commands.ffmpeg.emplace_back(L"-pix_fmt");
-		commands.ffmpeg.emplace_back(u::towstring(*m_video_info.pix_fmt));
-	}
+    if (m_video_info.pix_fmt) {
+        commands.ffmpeg.emplace_back(L"-pix_fmt");
+        commands.ffmpeg.emplace_back(u::towstring(*m_video_info.pix_fmt));
+    }
 
-	// 处理音频过滤器
-	std::vector<std::wstring> audio_filters;
-	if (m_settings.timescale) {
-		if (m_settings.input_timescale != 1.f) {
-			audio_filters.push_back(std::format(
-				L"asetrate={}*{}",
-				m_video_info.sample_rate != -1 ? m_video_info.sample_rate : 48000,
-				(1 / m_settings.input_timescale)
-			));
-			audio_filters.emplace_back(L"aresample=48000");
-		}
+    // 处理音频过滤器
+    std::vector<std::wstring> audio_filters;
+    if (m_settings.timescale) {
+        if (m_settings.input_timescale != 1.f) {
+            audio_filters.push_back(std::format(
+                L"asetrate={}*{}",
+                m_video_info.sample_rate != -1 ? m_video_info.sample_rate : 48000,
+                (1 / m_settings.input_timescale)
+            ));
+            audio_filters.emplace_back(L"aresample=48000");
+        }
 
-		if (m_settings.output_timescale != 1.f) {
-			if (m_settings.output_timescale_audio_pitch) {
-				audio_filters.push_back(std::format(
-					L"asetrate={}*{}",
-					m_video_info.sample_rate != -1 ? m_video_info.sample_rate : 48000,
-					m_settings.output_timescale
-				));
-				audio_filters.emplace_back(L"aresample=48000");
-			}
-			else {
-				audio_filters.push_back(std::format(L"atempo={}", m_settings.output_timescale));
-			}
-		}
-	}
+        if (m_settings.output_timescale != 1.f) {
+            if (m_settings.output_timescale_audio_pitch) {
+                audio_filters.push_back(std::format(
+                    L"asetrate={}*{}",
+                    m_video_info.sample_rate != -1 ? m_video_info.sample_rate : 48000,
+                    m_settings.output_timescale
+                ));
+                audio_filters.emplace_back(L"aresample=48000");
+            }
+            else {
+                audio_filters.push_back(std::format(L"atempo={}", m_settings.output_timescale));
+            }
+        }
+    }
 
-	if (!audio_filters.empty()) {
-		commands.ffmpeg.emplace_back(L"-af");
-		commands.ffmpeg.push_back(std::accumulate(
-			std::next(audio_filters.begin()),
-			audio_filters.end(),
-			audio_filters[0],
-			[](const std::wstring& a, const std::wstring& b) {
-				return a + L"," + b;
-			}
-		));
-	}
+    if (!audio_filters.empty()) {
+        commands.ffmpeg.emplace_back(L"-af");
+        commands.ffmpeg.push_back(std::accumulate(
+            std::next(audio_filters.begin()),
+            audio_filters.end(),
+            audio_filters[0],
+            [](const std::wstring& a, const std::wstring& b) {
+                return a + L"," + b;
+            }
+        ));
+    }
 
-	if (!m_settings.advanced.ffmpeg_override.empty()) {
-		auto args = u::ffmpeg_string_to_args(m_settings.advanced.ffmpeg_override);
+    if (!m_settings.advanced.ffmpeg_override.empty()) {
+        auto args = u::ffmpeg_string_to_args(m_settings.advanced.ffmpeg_override);
 
-		for (const auto& arg : args) {
-			commands.ffmpeg.push_back(u::towstring(arg));
-		}
-	}
-	else {
-		auto preset_args = config_presets::get_preset_params(
-			m_settings.gpu_encoding ? m_app_settings.gpu_type : "cpu",
-			u::to_lower(m_settings.encode_preset.empty() ? "h264" : m_settings.encode_preset),
-			m_settings.quality
-		);
+        for (const auto& arg : args) {
+            commands.ffmpeg.push_back(u::towstring(arg));
+        }
+    }
+    else {
+        auto preset_args = config_presets::get_preset_params(
+            m_settings.gpu_encoding ? m_app_settings.gpu_type : "cpu",
+            u::to_lower(m_settings.encode_preset.empty() ? "h264" : m_settings.encode_preset),
+            m_settings.quality
+        );
 
-		for (const auto& arg : preset_args)
-			commands.ffmpeg.push_back(u::towstring(arg));
+        for (const auto& arg : preset_args)
+            commands.ffmpeg.push_back(u::towstring(arg));
 
-		// 音频
-		commands.ffmpeg.insert(commands.ffmpeg.end(), { L"-c:a", L"aac", L"-b:a", L"320k" });
+        // 音频
+        commands.ffmpeg.insert(commands.ffmpeg.end(), { L"-c:a", L"aac", L"-b:a", L"320k" });
 
-		// 额外
-		commands.ffmpeg.insert(commands.ffmpeg.end(), { L"-movflags", L"+faststart" });
-	}
+        // 额外
+        commands.ffmpeg.insert(commands.ffmpeg.end(), { L"-movflags", L"+faststart" });
+    }
 
-	// 输出路径
-	commands.ffmpeg.push_back(m_output_path.wstring());
+    // 输出路径
+    commands.ffmpeg.push_back(m_output_path.wstring());
 
-	// 如果需要预览输出
-	if (m_settings.preview && blur.using_preview) {
-		commands.ffmpeg.insert(
-			commands.ffmpeg.end(),
-			{ L"-map",
-		      L"0:v",
-		      L"-q:v",
-		      L"2",
-		      L"-update",
-		      L"1",
-		      L"-atomic_writing",
-		      L"1",
-		      L"-y",
-		      m_preview_path.wstring() }
-		);
-	}
+    // 如果需要预览输出
+    if (m_settings.preview && blur.using_preview) {
+        commands.ffmpeg.insert(
+            commands.ffmpeg.end(),
+            { L"-map",
+              L"0:v",
+              L"-q:v",
+              L"2",
+              L"-update",
+              L"1",
+              L"-atomic_writing",
+              L"1",
+              L"-y",
+              m_preview_path.wstring() }
+        );
+    }
 
-	return commands;
+    return commands;
 }
 
 void Render::update_progress(int current_frame, int total_frames) {
-	m_status.current_frame = current_frame;
-	m_status.total_frames = total_frames;
-	m_status.init_frames = true;
+    m_status.current_frame = current_frame;
+    m_status.total_frames = total_frames;
+    m_status.init_frames = true;
 
-	bool first = !m_status.init_fps;
+    bool first = !m_status.init_fps;
 
-	if (!m_status.init_fps) {
-		m_status.init_fps = true;
-		m_status.start_time = std::chrono::steady_clock::now();
-		m_status.start_frame = current_frame;
-		m_status.fps = 0.f;
-	}
-	else {
-		auto current_time = std::chrono::steady_clock::now();
-		m_status.elapsed_time = current_time - m_status.start_time;
+    if (!m_status.init_fps) {
+        m_status.init_fps = true;
+        m_status.start_time = std::chrono::steady_clock::now();
+        m_status.start_frame = current_frame;
+        m_status.fps = 0.f;
+    }
+    else {
+        auto current_time = std::chrono::steady_clock::now();
+        m_status.elapsed_time = current_time - m_status.start_time;
 
-		m_status.fps = (m_status.current_frame - m_status.start_frame) / m_status.elapsed_time.count();
-	}
+        m_status.fps = (m_status.current_frame - m_status.start_frame) / m_status.elapsed_time.count();
+    }
 
-	m_status.update_progress_string(first);
+    m_status.update_progress_string(first);
 
-	u::log(m_status.progress_string);
+    u::log(m_status.progress_string);
 
-	rendering.call_progress_callback();
+    rendering.call_progress_callback();
 }
 
 tl::expected<RenderResult, std::string> Render::do_render(RenderCommands render_commands) {
-	namespace bp = boost::process;
+    namespace bp = boost::process;
 
-	m_status = RenderStatus{};
-	std::ostringstream vspipe_stderr_output;
-	std::ostringstream ffmpeg_stderr_output;
+    m_status = RenderStatus{};
+    std::ostringstream vspipe_stderr_output;
+    std::ostringstream ffmpeg_stderr_output;
 
-	try {
-		bp::pipe vspipe_stdout;
-		bp::ipstream vspipe_stderr;
-		bp::ipstream ffmpeg_stderr;
+    try {
+        bp::pipe vspipe_stdout;
+        bp::ipstream vspipe_stderr;
+        bp::ipstream ffmpeg_stderr;
 
 #ifndef _DEBUG
-		if (m_settings.advanced.debug) {
+        if (m_settings.advanced.debug) {
 #endif
-			DEBUG_LOG("VSPipe命令: {} {}", blur.vspipe_path, u::tostring(u::join(render_commands.vspipe, L" ")));
-			DEBUG_LOG("FFmpeg命令: {} {}", blur.ffmpeg_path, u::tostring(u::join(render_commands.ffmpeg, L" ")));
+            DEBUG_LOG("VSPipe命令: {} {}", blur.vspipe_path, u::tostring(u::join(render_commands.vspipe, L" ")));
+            DEBUG_LOG("FFmpeg命令: {} {}", blur.ffmpeg_path, u::tostring(u::join(render_commands.ffmpeg, L" ")));
 #ifndef _DEBUG
-		}
+        }
 #endif
 
-		bp::environment env = boost::this_process::environment();
+        bp::environment env = boost::this_process::environment();
 
 #if defined(__APPLE__)
-		if (blur.used_installer) {
-			env["PYTHONHOME"] = (blur.resources_path / "python").native();
-			env["PYTHONPATH"] = (blur.resources_path / "python/lib/python3.12/site-packages").native();
-		}
+        if (blur.used_installer) {
+            env["PYTHONHOME"] = (blur.resources_path / "python").native();
+            env["PYTHONPATH"] = (blur.resources_path / "python/lib/python3.12/site-packages").native();
+        }
 #endif
 
 #if defined(__linux__)
-		auto app_config = config_app::get_app_config();
-		if (!app_config.vapoursynth_lib_path.empty()) {
-			env["LD_LIBRARY_PATH"] = app_config.vapoursynth_lib_path;
-			env["PYTHONPATH"] = app_config.vapoursynth_lib_path + "/python3.12/site-packages";
-		}
+        auto app_config = config_app::get_app_config();
+        if (!app_config.vapoursynth_lib_path.empty()) {
+            env["LD_LIBRARY_PATH"] = app_config.vapoursynth_lib_path;
+            env["PYTHONPATH"] = app_config.vapoursynth_lib_path + "/python3.12/site-packages";
+        }
 #endif
 
-		// 启动vspipe进程
-		bp::child vspipe_process(
-			boost::filesystem::path{ blur.vspipe_path },
-			bp::args(render_commands.vspipe),
-			bp::std_out > vspipe_stdout,
-			bp::std_err > vspipe_stderr,
-			env
+        // 启动vspipe进程
+        bp::child vspipe_process(
+            boost::filesystem::path{ blur.vspipe_path },
+            bp::args(render_commands.vspipe),
+            bp::std_out > vspipe_stdout,
+            bp::std_err > vspipe_stderr,
+            env
 #ifdef _WIN32
-			,
-			bp::windows::create_no_window
+            ,
+            bp::windows::create_no_window
 #endif
-		);
+        );
 
-		// 启动ffmpeg进程
-		bp::child ffmpeg_process(
-			boost::filesystem::path{ blur.ffmpeg_path },
-			bp::args(render_commands.ffmpeg),
-			bp::std_out.null(),
-			bp::std_err > ffmpeg_stderr,
-			bp::std_in < vspipe_stdout,
-			env
+        // 启动ffmpeg进程
+        bp::child ffmpeg_process(
+            boost::filesystem::path{ blur.ffmpeg_path },
+            bp::args(render_commands.ffmpeg),
+            bp::std_out.null(),
+            bp::std_err > ffmpeg_stderr,
+            bp::std_in < vspipe_stdout,
+            env
 #ifdef _WIN32
-			,
-			bp::windows::create_no_window
+            ,
+            bp::windows::create_no_window
 #endif
-		);
+        );
 
-		// 存储PID用于信号处理器
-		m_vspipe_pid = vspipe_process.id();
-		m_ffmpeg_pid = ffmpeg_process.id();
+        // 存储PID用于信号处理器
+        m_vspipe_pid = vspipe_process.id();
+        m_ffmpeg_pid = ffmpeg_process.id();
 
-		std::thread progress_thread([&]() {
-			std::string line;
-			std::string progress_line;
-			char ch = 0;
+        std::thread progress_thread([&]() {
+            std::string line;
+            std::string progress_line;
+            char ch = 0;
 
-			while (ffmpeg_process.running() && vspipe_stderr.get(ch)) {
-				if (ch == '\n') {
-					// 处理完整行用于日志记录
-					vspipe_stderr_output << line << '\n';
-					line.clear();
-				}
-				else if (ch == '\r') {
-					// 处理进度更新
-					static std::regex frame_regex(R"(Frame: (\d+)\/(\d+)(?: \((\d+\.\d+) fps\))?)");
+            while (ffmpeg_process.running() && vspipe_stderr.get(ch)) {
+                if (ch == '\n') {
+                    // 处理完整行用于日志记录
+                    vspipe_stderr_output << line << '\n';
+                    line.clear();
+                }
+                else if (ch == '\r') {
+                    // 处理进度更新
+                    static std::regex frame_regex(R"(Frame: (\d+)\/(\d+)(?: \((\d+\.\d+) fps\))?)");
 
-					std::smatch match;
-					if (std::regex_match(line, match, frame_regex)) {
-						int current_frame = std::stoi(match[1]);
-						int total_frames = std::stoi(match[2]);
+                    std::smatch match;
+                    if (std::regex_match(line, match, frame_regex)) {
+                        int current_frame = std::stoi(match[1]);
+                        int total_frames = std::stoi(match[2]);
 
-						update_progress(current_frame, total_frames);
-					}
+                        update_progress(current_frame, total_frames);
+                    }
 
-					// 不要清除该行用于日志记录目的
-					progress_line = line;
-					line.clear();
-				}
-				else {
-					line += ch; // 将字符追加到行
-				}
-			}
+                    // 不要清除该行用于日志记录目的
+                    progress_line = line;
+                    line.clear();
+                }
+                else {
+                    line += ch; // 将字符追加到行
+                }
+            }
 
-			// 处理管道中的任何剩余数据
-			std::string remaining;
-			while (std::getline(vspipe_stderr, remaining)) {
-				vspipe_stderr_output << remaining << '\n';
-			}
-		});
+            // 处理管道中的任何剩余数据
+            std::string remaining;
+            while (std::getline(vspipe_stderr, remaining)) {
+                vspipe_stderr_output << remaining << '\n';
+            }
+        });
 
-		std::thread ffmpeg_stderr_thread([&]() {
-			std::string line;
-			while (std::getline(ffmpeg_stderr, line)) {
-				ffmpeg_stderr_output << line << '\n';
-			}
-		});
+        std::thread ffmpeg_stderr_thread([&]() {
+            std::string line;
+            while (std::getline(ffmpeg_stderr, line)) {
+                ffmpeg_stderr_output << line << '\n';
+            }
+        });
 
-		bool killed = false;
+        bool killed = false;
 
-		while (vspipe_process.running() || ffmpeg_process.running()) {
-			if (m_to_kill) {
-				ffmpeg_process.terminate();
-				vspipe_process.terminate();
-				DEBUG_LOG("渲染: 提前终止进程");
-				killed = true;
-				m_to_kill = false;
-			}
+        while (vspipe_process.running() || ffmpeg_process.running()) {
+            if (m_to_kill) {
+                ffmpeg_process.terminate();
+                vspipe_process.terminate();
+                DEBUG_LOG("渲染: 提前终止进程");
+                killed = true;
+                m_to_kill = false;
+            }
 
-			std::this_thread::sleep_for(std::chrono::milliseconds(50));
-		}
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
 
-		// 清理
-		if (progress_thread.joinable())
-			progress_thread.join();
+        // 清理
+        if (progress_thread.joinable())
+            progress_thread.join();
 
-		if (ffmpeg_stderr_thread.joinable())
-			ffmpeg_stderr_thread.join();
+        if (ffmpeg_stderr_thread.joinable())
+            ffmpeg_stderr_thread.join();
 
-		m_vspipe_pid = -1;
-		m_ffmpeg_pid = -1;
+        m_vspipe_pid = -1;
+        m_ffmpeg_pid = -1;
 
-		if (m_settings.advanced.debug)
-			u::log(
-				"vspipe退出代码: {}, ffmpeg退出代码: {}", vspipe_process.exit_code(), ffmpeg_process.exit_code()
-			);
+        if (m_settings.advanced.debug)
+            u::log(
+                "vspipe退出代码: {}, ffmpeg退出代码: {}", vspipe_process.exit_code(), ffmpeg_process.exit_code()
+            );
 
-		if (killed) {
-			return RenderResult{
-				.stopped = true,
-			};
-		}
+        if (killed) {
+            return RenderResult{
+                .stopped = true,
+            };
+        }
 
-		m_status.finished = true;
+        m_status.finished = true;
 
-		// 最终进度更新
-		update_progress(m_status.total_frames, m_status.total_frames);
+        // 最终进度更新
+        update_progress(m_status.total_frames, m_status.total_frames);
 
-		std::chrono::duration<float> elapsed_time = std::chrono::steady_clock::now() - m_status.start_time;
-		float elapsed_seconds = elapsed_time.count();
-		u::log("渲染在{:.2f}秒内完成", elapsed_seconds);
+        std::chrono::duration<float> elapsed_time = std::chrono::steady_clock::now() - m_status.start_time;
+        float elapsed_seconds = elapsed_time.count();
+        u::log("渲染在{:.2f}秒内完成", elapsed_seconds);
 
-		if (vspipe_process.exit_code() != 0 || ffmpeg_process.exit_code() != 0) {
-			return tl::unexpected(std::format(
-				"--- [vspipe] ---\n{}\n--- [ffmpeg] ---\n{}", vspipe_stderr_output.str(), ffmpeg_stderr_output.str()
-			));
-		}
+        if (vspipe_process.exit_code() != 0 || ffmpeg_process.exit_code() != 0) {
+            return tl::unexpected(std::format(
+                "--- [vspipe] ---\n{}\n--- [ffmpeg] ---\n{}", vspipe_stderr_output.str(), ffmpeg_stderr_output.str()
+            ));
+        }
 
-		return RenderResult{
-			.stopped = false,
-		};
-	}
-	catch (const boost::system::system_error& e) {
-		// 清理
-		m_vspipe_pid = -1;
-		m_ffmpeg_pid = -1;
+        return RenderResult{
+            .stopped = false,
+        };
+    }
+    catch (const boost::system::system_error& e) {
+        // 清理
+        m_vspipe_pid = -1;
+        m_ffmpeg_pid = -1;
 
-		u::log_error("进程错误: {}", e.what());
-		return tl::unexpected(e.what());
-	}
+        u::log_error("进程错误: {}", e.what());
+        return tl::unexpected(e.what());
+    }
 }
 
 void Render::pause() {
-	if (m_paused)
-		return;
+    if (m_paused)
+        return;
 
-	// if (m_vspipe_pid > 0)
-	// 	kill(m_vspipe_pid, SIGSTOP);
+    // if (m_vspipe_pid > 0)
+    // 	kill(m_vspipe_pid, SIGSTOP);
 
-	if (m_ffmpeg_pid > 0) {
+    if (m_ffmpeg_pid > 0) {
 #ifdef WIN32
-		u::windows_toggle_suspend_process(m_ffmpeg_pid, true);
+        u::windows_toggle_suspend_process(m_ffmpeg_pid, true);
 #else
-		kill(m_ffmpeg_pid, SIGSTOP);
+        kill(m_ffmpeg_pid, SIGSTOP);
 #endif
-	}
+    }
 
-	m_paused = true;
+    m_paused = true;
 
-	m_status.on_pause();
+    m_status.on_pause();
 
-	u::log("渲染已暂停");
+    u::log("渲染已暂停");
 }
 
 void Render::resume() {
-	if (!m_paused)
-		return;
+    if (!m_paused)
+        return;
 
-	// if (m_vspipe_pid > 0)
-	// 	kill(m_vspipe_pid, SIGCONT);
+    // if (m_vspipe_pid > 0)
+    // 	kill(m_vspipe_pid, SIGCONT);
 
-	if (m_ffmpeg_pid > 0) {
+    if (m_ffmpeg_pid > 0) {
 #ifdef WIN32
-		u::windows_toggle_suspend_process(m_ffmpeg_pid, false);
+        u::windows_toggle_suspend_process(m_ffmpeg_pid, false);
 #else
-		kill(m_ffmpeg_pid, SIGCONT);
+        kill(m_ffmpeg_pid, SIGCONT);
 #endif
-	}
+    }
 
-	m_paused = false;
+    m_paused = false;
 
-	u::log("渲染已恢复");
+    u::log("渲染已恢复");
 }
 
 tl::expected<RenderResult, std::string> Render::render() {
-	if (!blur.initialised)
-		return tl::unexpected("Blur未初始化");
+    if (!blur.initialised)
+        return tl::unexpected("Blur未初始化");
 
-	u::log("正在渲染'{}'\n", m_video_name);
+    u::log("正在渲染'{}'\n", m_video_name);
 
-	if (blur.verbose) {
-		u::log("渲染设置:");
-		u::log("源视频时间尺度为{:.2f}", m_settings.input_timescale);
-		if (m_settings.interpolate)
-			u::log(
-				"插值到{}fps，时间尺度为{:.2f}", m_settings.interpolated_fps, m_settings.output_timescale
-			);
-		if (m_settings.blur)
-			u::log(
-				"运动模糊到{}fps ({}%)",
-				m_settings.blur_output_fps,
-				static_cast<int>(m_settings.blur_amount * 100)
-			);
-		u::log("以{:.2f}倍速和crf {}渲染", m_settings.output_timescale, m_settings.quality);
-	}
+    if (blur.verbose) {
+        u::log("渲染设置:");
+        u::log("源视频时间尺度为{:.2f}", m_settings.input_timescale);
+        if (m_settings.interpolate)
+            u::log(
+                "插值到{}fps，时间尺度为{:.2f}", m_settings.interpolated_fps, m_settings.output_timescale
+            );
+        if (m_settings.blur)
+            u::log(
+                "运动模糊到{}fps ({}%)",
+                m_settings.blur_output_fps,
+                static_cast<int>(m_settings.blur_amount * 100)
+            );
+        u::log("以{:.2f}倍速和crf {}渲染", m_settings.output_timescale, m_settings.quality);
+    }
 
-	// 开始预览
-	if (m_settings.preview && blur.using_preview) {
-		if (create_temp_path()) {
-			m_preview_path = m_temp_path / "blur_preview.jpg";
-		}
-	}
+    // 开始预览
+    if (m_settings.preview && blur.using_preview) {
+        if (create_temp_path()) {
+            m_preview_path = m_temp_path / "blur_preview.jpg";
+        }
+    }
 
-	// 渲染
-	auto render_commands = build_render_commands();
-	if (!render_commands)
-		return tl::unexpected(render_commands.error());
+    // 渲染
+    auto render_commands = build_render_commands();
+    if (!render_commands)
+        return tl::unexpected(render_commands.error());
 
-	auto render = do_render(*render_commands);
-	if (!render) {
-		u::log("渲染'{}'失败", m_video_name);
+    auto render = do_render(*render_commands);
+    if (!render) {
+        u::log("渲染'{}'失败", m_video_name);
 
-		if (blur.verbose || m_settings.advanced.debug) {
-			u::log(render.error());
-		}
-	}
-	else {
-		if (render->stopped) {
-			u::log("已停止渲染'{}'", m_video_name);
-			std::filesystem::remove(m_output_path);
-		}
-		else {
-			if (blur.verbose) {
-				u::log("已完成渲染'{}'", m_video_name);
-			}
+        if (blur.verbose || m_settings.advanced.debug) {
+            u::log(render.error());
+        }
+    }
+    else {
+        if (render->stopped) {
+            u::log("已停止渲染'{}'", m_video_name);
+            std::filesystem::remove(m_output_path);
+        }
+        else {
+            if (blur.verbose) {
+                u::log("已完成渲染'{}'", m_video_name);
+            }
 
-			if (m_settings.copy_dates) {
-				try {
-					auto input_time = std::filesystem::last_write_time(m_video_path);
-					std::filesystem::last_write_time(m_output_path, input_time);
+            if (m_settings.copy_dates) {
+                try {
+                    auto input_time = std::filesystem::last_write_time(m_video_path);
+                    std::filesystem::last_write_time(m_output_path, input_time);
 
-					if (m_settings.advanced.debug) {
-						u::log("将输出文件修改时间设置为匹配输入文件");
-					}
-				}
-				catch (const std::exception& e) {
-					u::log_error("设置输出文件时间戳失败: {}", e.what());
-				}
-			}
-		}
-	}
+                    if (m_settings.advanced.debug) {
+                        u::log("将输出文件修改时间设置为匹配输入文件");
+                    }
+                }
+                catch (const std::exception& e) {
+                    u::log_error("设置输出文件时间戳失败: {}", e.what());
+                }
+            }
+        }
+    }
 
-	// 停止预览
-	remove_temp_path();
+    // 停止预览
+    remove_temp_path();
 
-	return render;
+    return render;
 }
 
 void Rendering::stop_renders_and_wait() {
-	auto current_render = get_current_render();
-	if (current_render) {
-		(*current_render)->stop();
-		u::log("正在停止当前渲染");
-	}
+    auto current_render = get_current_render();
+    if (current_render) {
+        (*current_render)->stop();
+        u::log("正在停止当前渲染");
+    }
 
-	// 等待当前渲染完成
-	while (get_current_render_id()) {
-		std::this_thread::sleep_for(std::chrono::milliseconds(50));
-	}
+    // 等待当前渲染完成
+    while (get_current_render_id()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
 }
 
 void RenderStatus::update_progress_string(bool first) {
-	float progress = current_frame / (float)total_frames;
+    if (total_frames == 0) return;
+    
+    float progress = static_cast<float>(current_frame) / static_cast<float>(total_frames);
 
-	if (first) {
-		progress_string = std::format("{:.1f}%完成 ({}/{})", progress * 100, current_frame, total_frames);
-	}
-	else {
-		progress_string =
-			std::format("{:.1f}%完成 ({}/{}, {:.2f} fps)", progress * 100, current_frame, total_frames, fps);
-	}
+    if (first) {
+        progress_string = std::format("{:.1f}%完成 ({}/{})", progress * 100, current_frame, total_frames);
+    }
+    else {
+        progress_string =
+            std::format("{:.1f}%完成 ({}/{}, {:.2f} fps)", progress * 100, current_frame, total_frames, fps);
+    }
 }
 
 void RenderStatus::on_pause() {
-	init_fps = false;
-	fps = 0.f;
+    init_fps = false;
+    fps = 0.f;
 }
