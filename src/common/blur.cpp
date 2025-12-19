@@ -47,24 +47,24 @@ tl::expected<void, std::string> Blur::initialise(bool _verbose, bool _using_prev
 		ffprobe_path = (blur.resources_path / "ffmpeg/ffprobe");
 #endif
 
-		const static std::string manual_troubleshooting_info = "请尝试重新下载最新安装程序。";
+		const static std::string manual_troubleshooting_info = "Try redownloading the latest installer.";
 
 		// didn't use installer, check if dependencies are installed
 		if (!std::filesystem::exists(ffmpeg_path)) {
-			return tl::unexpected("未找到 FFmpeg。 " + manual_troubleshooting_info);
+			return tl::unexpected("FFmpeg could not be found. " + manual_troubleshooting_info);
 		}
 
 		if (!std::filesystem::exists(ffprobe_path)) {
-			return tl::unexpected("未找到 FFprobe。 " + manual_troubleshooting_info);
+			return tl::unexpected("FFprobe could not be found. " + manual_troubleshooting_info);
 		}
 
 		if (!std::filesystem::exists(vspipe_path)) {
-			return tl::unexpected("未找到 VapourSynth。 " + manual_troubleshooting_info);
+			return tl::unexpected("VapourSynth could not be found. " + manual_troubleshooting_info);
 		}
 	}
 	else {
 		const static std::string manual_troubleshooting_info =
-			"如果不确定这是什么意思，请尝试使用安装程序。";
+			"If you're not sure what that means, try using the installer.";
 
 		// didn't use installer, check if dependencies are installed
 		if (auto _ffmpeg_path = u::get_program_path("ffmpeg")) {
@@ -100,7 +100,7 @@ tl::expected<void, std::string> Blur::initialise(bool _verbose, bool _using_prev
 	});
 
 	if (atexit_res != 0)
-		DEBUG_LOG("注册 atexit 失败");
+		DEBUG_LOG("failed to register atexit");
 
 	initialise_base_temp_path();
 
@@ -132,7 +132,7 @@ void Blur::cleanup() {
 	if (cleanup_performed.exchange(true))
 		return;
 
-	u::log("开始应用程序清理...");
+	u::log("Starting application cleanup...");
 
 	exiting = true;
 
@@ -140,26 +140,26 @@ void Blur::cleanup() {
 	rendering.stop_renders_and_wait();
 
 	// remove temp dirs
-	DEBUG_LOG( "正在移除临时路径 {}", temp_path);
+	DEBUG_LOG("removing temp path {}", temp_path);
 	std::filesystem::remove_all(temp_path); // todo: is this unsafe lol
 
-	u::log("应用程序清理完成");
+	u::log("Application cleanup completed");
 }
 
 std::optional<std::filesystem::path> Blur::create_temp_path(const std::string& folder_name) const {
 	auto temp_dir = temp_path / folder_name;
 
 	if (std::filesystem::exists(temp_dir)) {
-		u::log("临时目录 {} 已存在，正在清除并重新创建", temp_path);
+		u::log("temp dir {} already exists, clearing and re-creating", temp_path);
 		remove_temp_path(temp_dir);
 	}
 
-	u::log("尝试创建临时目录 {}", temp_dir);
+	u::log("trying to make temp dir {}", temp_dir);
 
 	if (!std::filesystem::create_directory(temp_dir))
 		return {};
 
-	u::log("已创建临时目录 {}", temp_dir);
+	u::log("created temp dir {}", temp_dir);
 
 	return temp_dir;
 }
@@ -173,12 +173,12 @@ bool Blur::remove_temp_path(const std::filesystem::path& temp_path) {
 
 	try {
 		std::filesystem::remove_all(temp_path);
-		u::log("已移除临时目录 {}", temp_path);
+		u::log("removed temp dir {}", temp_path);
 
 		return true;
 	}
 	catch (const std::filesystem::filesystem_error& e) {
-		u::log_error("移除临时路径时出错: {}", e.what());
+		u::log_error("Error removing temp path: {}", e.what());
 		return false;
 	}
 }

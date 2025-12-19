@@ -69,9 +69,8 @@ struct PresetSettings {
 		},
 	};
 
-	[[nodiscard]] const std::string* find_preset_params(
-		const std::string& gpu_type, const std::string& preset_name
-	) const {
+	[[nodiscard]] const std::string* find_preset_params(const std::string& gpu_type, const std::string& preset_name)
+		const {
 		for (const auto& gpu_presets : all_gpu_presets) {
 			if (gpu_presets.gpu_type == gpu_type) {
 				for (const auto& preset : gpu_presets.presets) {

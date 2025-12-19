@@ -120,7 +120,7 @@ def interpolate_svp(
     preset = preset.lower()
 
     if preset not in LEGACY_PRESETS and preset not in NEW_PRESETS:
-        raise vs.Error(f"interpolate: '{preset}' 不是有效的预设")
+        raise vs.Error(f"interpolate: '{preset}' is not a valid preset")
 
     # generate svp strings
     [super_string, vectors_string, smooth_string] = generate_svp_strings(
@@ -132,7 +132,7 @@ def interpolate_svp(
 
 def change_fps(clip, fpsnum, fpsden=1):  # this is just directly from havsfunc
     if not isinstance(clip, vs.VideoNode):
-        raise vs.Error("ChangeFPS: 这不是一个视频片段")
+        raise vs.Error("ChangeFPS: This is not a clip")
 
     factor = (fpsnum / fpsden) * (clip.fps_den / clip.fps_num)
 

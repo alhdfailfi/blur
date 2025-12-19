@@ -70,7 +70,7 @@ weighting::WeightingResult weighting::gaussian(
 	int frames, double mean, double stddev, std::pair<double, double> bound
 ) {
 	if (bound.first == bound.second)
-		return { .error = "高斯边界必须有两个不同的值" };
+		return { .error = "Gaussian bound must have two distinct values" };
 
 	std::vector<double> x_vals = scale_range(frames, bound.first, bound.second);
 	std::vector<double> weights(frames);
@@ -153,7 +153,7 @@ weighting::GetWeightsResult weighting::get_weights(const BlurSettings& settings,
 
 	auto gaussian_bound = parse_gaussian_bound(settings.advanced.blur_weighting_gaussian_bound);
 	if (!gaussian_bound)
-		return { .error = "解析高斯边界失败" };
+		return { .error = "Failed to parse gaussian bound" };
 
 	const std::unordered_map<std::string, std::function<WeightingResult()>> weighting_map = {
 		{ "equal",
@@ -227,9 +227,9 @@ weighting::GetWeightsResult weighting::get_weights(const BlurSettings& settings,
 		}
 		catch (...) {
 			throw std::runtime_error(
-				"无效的 blur_weighting 值：" + settings.blur_weighting +
-				"。有效选项：'equal', 'gaussian_sym', 'vegas', 'pyramid', 'gaussian', 'ascending', "
-				"'descending', 'gaussian_reverse'，或逗号分隔的列表（例如 '1, 2, 3'）。"
+				"Invalid blur_weighting value: " + settings.blur_weighting +
+				". Valid options: 'equal', 'gaussian_sym', 'vegas', 'pyramid', 'gaussian', 'ascending', "
+				"'descending', 'gaussian_reverse', or a comma-separated list (e.g. '1, 2, 3')."
 			);
 		}
 	}

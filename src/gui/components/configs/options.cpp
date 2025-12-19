@@ -20,14 +20,14 @@ void configs::set_interpolated_fps() {
 	if (pre_interpolate_scale) {
 		if (interpolate_scale)
 			pre_interpolated_fps_mult =
-				std::min(pre_interpolated_fps_mult, interpolated_fps_mult); // 不能预插值超过插值
+				std::min(pre_interpolated_fps_mult, interpolated_fps_mult); // can't preinterpolate more than interp
 
 		settings.pre_interpolated_fps = std::format("{}x", pre_interpolated_fps_mult);
 	}
 	else {
 		if (!interpolate_scale)
 			pre_interpolated_fps =
-				std::min(pre_interpolated_fps, interpolated_fps); // 不能预插值超过插值
+				std::min(pre_interpolated_fps, interpolated_fps); // can't preinterpolate more than interp
 
 		settings.pre_interpolated_fps = std::to_string(pre_interpolated_fps);
 	}
@@ -56,7 +56,7 @@ void configs::options(ui::Container& container) {
 			ui::add_text(
 				std::format("section {} forced", label),
 				container,
-				"强制启用，因为此部分中的设置已被修改",
+				"forced on as settings in this section have been modified",
 				gfx::Color::white(renderer::MUTED_SHADE),
 				fonts::dejavu
 			);
@@ -64,7 +64,7 @@ void configs::options(ui::Container& container) {
 	};
 
 	/*
-	    模糊
+	    Blur
 	*/
 	section_component("blur", &settings.blur);
 
@@ -75,18 +75,18 @@ void configs::options(ui::Container& container) {
 			0.f,
 			2.f,
 			&settings.blur_amount,
-			"模糊量: {:.2f}",
+			"blur amount: {:.2f}",
 			&settings.blur_output_fps,
 			app_settings.blur_amount_tied_to_fps,
 			"fps",
 			fonts::dejavu
 		);
 
-		ui::add_slider("output fps", container, 1, 120, &settings.blur_output_fps, "输出 fps: {} fps", fonts::dejavu);
+		ui::add_slider("output fps", container, 1, 120, &settings.blur_output_fps, "output fps: {} fps", fonts::dejavu);
 		auto* weighting_dropdown = ui::add_dropdown(
 			"blur weighting",
 			container,
-			"模糊加权",
+			"blur weighting",
 			{
 				"equal",
 				"gaussian_sym",
@@ -117,11 +117,11 @@ void configs::options(ui::Container& container) {
 			}
 		}
 
-		ui::add_slider("blur gamma", container, 1.f, 10.f, &settings.blur_gamma, "模糊伽马: {:.2f}", fonts::dejavu);
+		ui::add_slider("blur gamma", container, 1.f, 10.f, &settings.blur_gamma, "blur gamma: {:.2f}", fonts::dejavu);
 	}
 
 	/*
-	    插值
+	    Interpolation
 	*/
 	section_component("interpolation", &settings.interpolate);
 
@@ -129,7 +129,7 @@ void configs::options(ui::Container& container) {
 		ui::add_checkbox(
 			"interpolate scale checkbox",
 			container,
-			"通过缩放fps进行插值",
+			"interpolate by scaling fps",
 			interpolate_scale,
 			fonts::dejavu,
 			[&](bool new_value) {
@@ -144,7 +144,7 @@ void configs::options(ui::Container& container) {
 				1.f,
 				10.f,
 				&interpolated_fps_mult,
-				"插值后fps: {:.1f}x",
+				"interpolated fps: {:.1f}x",
 				fonts::dejavu,
 				[&](std::variant<int*, float*> value) {
 					set_interpolated_fps();
@@ -159,7 +159,7 @@ void configs::options(ui::Container& container) {
 				1,
 				settings.blur_output_fps * 50,
 				&interpolated_fps,
-				"插值后fps: {} fps",
+				"interpolated fps: {} fps",
 				fonts::dejavu,
 				[&](std::variant<int*, float*> value) {
 					set_interpolated_fps();
@@ -170,10 +170,10 @@ void configs::options(ui::Container& container) {
 		ui::add_dropdown(
 			"interpolation method dropdown",
 			container,
-			"插值方法",
+			"interpolation method",
 			{
 				"svp",
-				"rife", // 在Mac上插件当前有问题，稍后修复
+				"rife", // plugins broken on mac rn idk why todo: fix when its fixed
 			},
 			settings.interpolation_method,
 			fonts::dejavu
@@ -181,7 +181,7 @@ void configs::options(ui::Container& container) {
 	}
 
 	/*
-	    预插值
+	    Pre-interpolation
 	*/
 	if (settings.interpolate && settings.interpolation_method != "rife") {
 		section_component("pre-interpolation", &settings.pre_interpolate);
@@ -190,7 +190,7 @@ void configs::options(ui::Container& container) {
 			ui::add_checkbox(
 				"pre-interpolate scale checkbox",
 				container,
-				"通过缩放fps进行预插值",
+				"pre-interpolate by scaling fps",
 				pre_interpolate_scale,
 				fonts::dejavu,
 				[&](bool new_value) {
@@ -205,7 +205,7 @@ void configs::options(ui::Container& container) {
 					1.f,
 					interpolate_scale ? interpolated_fps_mult : 10.f,
 					&pre_interpolated_fps_mult,
-					"预插值后fps: {:.1f}x",
+					"pre-interpolated fps: {:.1f}x",
 					fonts::dejavu,
 					[&](std::variant<int*, float*> value) {
 						set_interpolated_fps();
@@ -220,7 +220,7 @@ void configs::options(ui::Container& container) {
 					1,
 					!interpolate_scale ? interpolated_fps : 2400,
 					&pre_interpolated_fps,
-					"预插值后fps: {} fps",
+					"pre-interpolated fps: {} fps",
 					fonts::dejavu,
 					[&](std::variant<int*, float*> value) {
 						set_interpolated_fps();
@@ -231,17 +231,17 @@ void configs::options(ui::Container& container) {
 	}
 
 	/*
-	    去重
+	    Deduplication
 	*/
 	section_component("deduplication");
 
-	ui::add_checkbox("deduplicate checkbox", container, "去重", settings.deduplicate, fonts::dejavu);
+	ui::add_checkbox("deduplicate checkbox", container, "deduplicate", settings.deduplicate, fonts::dejavu);
 
 	if (settings.deduplicate) {
 		ui::add_dropdown(
 			"deduplicate method dropdown",
 			container,
-			"去重方法",
+			"deduplicate method",
 			{
 				"svp",
 				"rife",
@@ -253,14 +253,14 @@ void configs::options(ui::Container& container) {
 	}
 
 	/*
-	    渲染
+	    Rendering
 	*/
 	section_component("rendering");
 
 	ui::add_dropdown(
 		"codec dropdown",
 		container,
-		std::format("编码预设 ({})", settings.gpu_encoding ? "gpu: " + app_settings.gpu_type : "cpu"),
+		std::format("encode preset ({})", settings.gpu_encoding ? "gpu: " + app_settings.gpu_type : "cpu"),
 		u::get_supported_presets(settings.gpu_encoding, app_settings.gpu_type),
 		settings.encode_preset,
 		fonts::dejavu
@@ -276,7 +276,7 @@ void configs::options(ui::Container& container) {
 		auto codec = config_presets::extract_codec_from_args(preset_args);
 		auto quality_config = config_presets::get_quality_config(codec ? *codec : "");
 
-		// // 将当前质量限制在新范围内
+		// // clamp current quality to new range
 		// settings.quality = std::clamp(settings.quality, quality_config.min_quality, quality_config.max_quality);
 
 		ui::add_slider(
@@ -285,7 +285,7 @@ void configs::options(ui::Container& container) {
 			quality_config.min_quality,
 			quality_config.max_quality,
 			&settings.quality,
-			"质量: {}",
+			"quality: {}",
 			fonts::dejavu,
 			{},
 			0.f,
@@ -296,35 +296,35 @@ void configs::options(ui::Container& container) {
 		ui::add_text(
 			"ffmpeg override quality warning",
 			container,
-			"质量已被自定义ffmpeg过滤器覆盖",
+			"quality overridden by custom ffmpeg filters",
 			gfx::Color(252, 186, 3, 150),
 			fonts::dejavu
 		);
 	}
 
-	ui::add_checkbox("preview checkbox", container, "预览", settings.preview, fonts::dejavu);
+	ui::add_checkbox("preview checkbox", container, "preview", settings.preview, fonts::dejavu);
 
 	ui::add_checkbox(
-		"detailed filenames checkbox", container, "详细文件名", settings.detailed_filenames, fonts::dejavu
+		"detailed filenames checkbox", container, "detailed filenames", settings.detailed_filenames, fonts::dejavu
 	);
 
-	ui::add_checkbox("copy dates checkbox", container, "复制日期", settings.copy_dates, fonts::dejavu);
+	ui::add_checkbox("copy dates checkbox", container, "copy dates", settings.copy_dates, fonts::dejavu);
 
-	ui::add_text_input("output path input", container, app_settings.output_prefix, "输出路径", fonts::dejavu);
+	ui::add_text_input("output path input", container, app_settings.output_prefix, "output path", fonts::dejavu);
 
 	/*
-	    GPU加速
+	    GPU Acceleration
 	*/
 	section_component("gpu acceleration");
 
-	ui::add_checkbox("gpu decoding checkbox", container, "GPU解码", settings.gpu_decoding, fonts::dejavu);
+	ui::add_checkbox("gpu decoding checkbox", container, "gpu decoding", settings.gpu_decoding, fonts::dejavu);
 
 	ui::add_checkbox(
-		"gpu interpolation checkbox", container, "GPU插值", settings.gpu_interpolation, fonts::dejavu
+		"gpu interpolation checkbox", container, "gpu interpolation", settings.gpu_interpolation, fonts::dejavu
 	);
 
 	if (settings.advanced.ffmpeg_override.empty()) {
-		ui::add_checkbox("gpu encoding checkbox", container, "GPU编码", settings.gpu_encoding, fonts::dejavu);
+		ui::add_checkbox("gpu encoding checkbox", container, "gpu encoding", settings.gpu_encoding, fonts::dejavu);
 
 		if (settings.gpu_encoding) {
 			auto gpu_types = u::get_available_gpu_types();
@@ -332,7 +332,7 @@ void configs::options(ui::Container& container) {
 				ui::add_dropdown(
 					"gpu encoding type dropdown",
 					container,
-					"GPU编码设备",
+					"gpu encoding device",
 					gpu_types,
 					app_settings.gpu_type,
 					fonts::dejavu
@@ -344,7 +344,7 @@ void configs::options(ui::Container& container) {
 		ui::add_text(
 			"ffmpeg override gpu encoding warning",
 			container,
-			"GPU编码已被自定义ffmpeg过滤器覆盖",
+			"gpu encoding overridden by custom ffmpeg filters",
 			gfx::Color(252, 186, 3, 150),
 			fonts::dejavu
 		);
@@ -353,21 +353,21 @@ void configs::options(ui::Container& container) {
 	static std::string rife_gpu;
 
 	if (app_settings.rife_gpu_index == -1) {
-		rife_gpu = "默认 - 将使用第一个可用设备";
+		rife_gpu = "default - will use first available";
 	}
 	else {
 		if (blur.initialised_rife_gpus && !blur.rife_gpus.empty()) {
 			rife_gpu = blur.rife_gpus.at(app_settings.rife_gpu_index);
 		}
 		else {
-			rife_gpu = std::format("GPU {}", app_settings.rife_gpu_index);
+			rife_gpu = std::format("gpu {}", app_settings.rife_gpu_index);
 		}
 	}
 
 	ui::add_dropdown(
 		"rife gpu dropdown",
 		container,
-		"RIFE GPU",
+		"rife gpu",
 		blur.rife_gpu_names,
 		rife_gpu,
 		fonts::dejavu,
@@ -381,7 +381,7 @@ void configs::options(ui::Container& container) {
 	);
 
 	/*
-	    时间缩放
+	    Timescale
 	*/
 	section_component("timescale", &settings.timescale);
 
@@ -392,7 +392,7 @@ void configs::options(ui::Container& container) {
 			0.f,
 			2.f,
 			&settings.input_timescale,
-			"输入时间缩放: {:.2f}",
+			"input timescale: {:.2f}",
 			fonts::dejavu,
 			{},
 			0.01f
@@ -404,7 +404,7 @@ void configs::options(ui::Container& container) {
 			0.f,
 			2.f,
 			&settings.output_timescale,
-			"输出时间缩放: {:.2f}",
+			"output timescale: {:.2f}",
 			fonts::dejavu,
 			{},
 			0.01f
@@ -413,26 +413,26 @@ void configs::options(ui::Container& container) {
 		ui::add_checkbox(
 			"adjust timescaled audio pitch checkbox",
 			container,
-			"调整时间缩放后的音频音高",
+			"adjust timescaled audio pitch",
 			settings.output_timescale_audio_pitch,
 			fonts::dejavu
 		);
 	}
 
 	/*
-	    滤镜
+	    Filters
 	*/
 	section_component("filters", &settings.filters);
 
 	if (settings.filters) {
 		ui::add_slider(
-			"brightness", container, 0.f, 2.f, &settings.brightness, "亮度: {:.2f}", fonts::dejavu, {}, 0.01f
+			"brightness", container, 0.f, 2.f, &settings.brightness, "brightness: {:.2f}", fonts::dejavu, {}, 0.01f
 		);
 		ui::add_slider(
-			"saturation", container, 0.f, 2.f, &settings.saturation, "饱和度: {:.2f}", fonts::dejavu, {}, 0.01f
+			"saturation", container, 0.f, 2.f, &settings.saturation, "saturation: {:.2f}", fonts::dejavu, {}, 0.01f
 		);
 		ui::add_slider(
-			"contrast", container, 0.f, 2.f, &settings.contrast, "对比度: {:.2f}", fonts::dejavu, {}, 0.01f
+			"contrast", container, 0.f, 2.f, &settings.contrast, "contrast: {:.2f}", fonts::dejavu, {}, 0.01f
 		);
 	}
 
@@ -442,7 +442,7 @@ void configs::options(ui::Container& container) {
 
 	if (settings.override_advanced) {
 		/*
-		    高级去重
+		    Advanced Deduplication
 		*/
 		section_component("advanced deduplication");
 
@@ -453,17 +453,17 @@ void configs::options(ui::Container& container) {
 				-1,
 				10,
 				&settings.advanced.deduplicate_range,
-				"去重范围: {}",
+				"deduplicate range: {}",
 				fonts::dejavu,
 				{},
 				0.f,
-				"-1 = 无限"
+				"-1 = infinite"
 			);
 		}
 
 		std::istringstream iss(settings.advanced.deduplicate_threshold);
 		float f = NAN;
-		iss >> std::noskipws >> f; // 尝试读取为浮点数
+		iss >> std::noskipws >> f; // try to read as float
 		bool is_float = iss.eof() && !iss.fail();
 
 		if (!is_float)
@@ -473,7 +473,7 @@ void configs::options(ui::Container& container) {
 			"deduplicate threshold input",
 			container,
 			settings.advanced.deduplicate_threshold,
-			"去重阈值",
+			"deduplicate threshold",
 			fonts::dejavu
 		);
 
@@ -483,19 +483,19 @@ void configs::options(ui::Container& container) {
 			ui::add_text(
 				"deduplicate threshold not a float warning",
 				container,
-				"去重阈值必须是小数",
+				"deduplicate threshold must be a decimal number",
 				gfx::Color(255, 0, 0, 255),
 				fonts::dejavu
 			);
 		}
 
 		/*
-		    高级渲染
+		    Advanced Rendering
 		*/
 		section_component("advanced rendering");
 
 		ui::add_text_input(
-			"video container text input", container, settings.advanced.video_container, "视频容器", fonts::dejavu
+			"video container text input", container, settings.advanced.video_container, "video container", fonts::dejavu
 		);
 
 		bool bad_audio = settings.timescale && (u::contains(settings.advanced.ffmpeg_override, "-c:a copy") ||
@@ -507,7 +507,7 @@ void configs::options(ui::Container& container) {
 			"custom ffmpeg filters text input",
 			container,
 			settings.advanced.ffmpeg_override,
-			"自定义ffmpeg过滤器",
+			"custom ffmpeg filters",
 			fonts::dejavu
 		);
 
@@ -517,16 +517,16 @@ void configs::options(ui::Container& container) {
 			ui::add_text(
 				"timescale audio copy warning",
 				container,
-				"使用时间缩放时不能使用 -c:a copy",
+				"cannot use -c:a copy while using timescale",
 				gfx::Color(255, 0, 0, 255),
 				fonts::dejavu
 			);
 		}
 
-		ui::add_checkbox("debug checkbox", container, "调试", settings.advanced.debug, fonts::dejavu);
+		ui::add_checkbox("debug checkbox", container, "debug", settings.advanced.debug, fonts::dejavu);
 
 		/*
-		    高级插值
+		    Advanced Interpolation
 		*/
 		section_component("advanced interpolation");
 
@@ -534,7 +534,7 @@ void configs::options(ui::Container& container) {
 			ui::add_dropdown(
 				"SVP interpolation preset dropdown",
 				container,
-				"SVP插值预设",
+				"SVP interpolation preset",
 				config_blur::SVP_INTERPOLATION_PRESETS,
 				settings.advanced.svp_interpolation_preset,
 				fonts::dejavu
@@ -543,7 +543,7 @@ void configs::options(ui::Container& container) {
 			ui::add_dropdown(
 				"SVP interpolation algorithm dropdown",
 				container,
-				"SVP插值算法",
+				"SVP interpolation algorithm",
 				config_blur::SVP_INTERPOLATION_ALGORITHMS,
 				settings.advanced.svp_interpolation_algorithm,
 				fonts::dejavu
@@ -553,7 +553,7 @@ void configs::options(ui::Container& container) {
 		ui::add_dropdown(
 			"interpolation block size dropdown",
 			container,
-			"插值块大小",
+			"interpolation block size",
 			config_blur::INTERPOLATION_BLOCK_SIZES,
 			settings.advanced.interpolation_blocksize,
 			fonts::dejavu
@@ -565,14 +565,14 @@ void configs::options(ui::Container& container) {
 			0,
 			500,
 			&settings.advanced.interpolation_mask_area,
-			"插值遮罩区域: {}",
+			"interpolation mask area: {}",
 			fonts::dejavu
 		);
 
-		ui::add_text_input("rife model", container, settings.advanced.rife_model, "RIFE模型", fonts::dejavu);
+		ui::add_text_input("rife model", container, settings.advanced.rife_model, "rife model", fonts::dejavu);
 
 		/*
-		    高级模糊
+		    Advanced Blur
 		*/
 		section_component("advanced blur");
 
@@ -582,7 +582,7 @@ void configs::options(ui::Container& container) {
 			0.f,
 			10.f,
 			&settings.advanced.blur_weighting_gaussian_std_dev,
-			"模糊权重高斯标准差: {:.2f}",
+			"blur weighting gaussian std dev: {:.2f}",
 			fonts::dejavu
 		);
 		ui::add_slider(
@@ -591,19 +591,19 @@ void configs::options(ui::Container& container) {
 			0.f,
 			2.f,
 			&settings.advanced.blur_weighting_gaussian_mean,
-			"模糊权重高斯均值: {:.2f}",
+			"blur weighting gaussian mean: {:.2f}",
 			fonts::dejavu
 		);
 		ui::add_text_input(
 			"blur weighting gaussian bound input",
 			container,
 			settings.advanced.blur_weighting_gaussian_bound,
-			"模糊权重高斯边界",
+			"blur weighting gaussian bound",
 			fonts::dejavu
 		);
 	}
 	else {
-		// 确保没有异常情况（TODO: 是否需要，是否有边缘情况？）
+		// make sure theres no funny business (TODO: is this needed, are there edge cases?)
 		settings.advanced = config_blur::DEFAULT_CONFIG.advanced;
 	}
 }
@@ -626,10 +626,10 @@ void configs::parse_interp() {
 				scale_mode = false;
 			}
 
-			u::log("加载 {}interp, 缩放: {} (fps: {}, 倍数: {})", log_prefix, scale_mode, fps, fps_mult);
+			u::log("loaded {}interp, scale: {} (fps: {}, mult: {})", log_prefix, scale_mode, fps, fps_mult);
 		}
 		catch (std::exception& e) {
-			u::log("解析 {}interpolated fps 失败，因用户错误设置默认值", log_prefix);
+			u::log("failed to parse {}interpolated fps, setting defaults cos user error", log_prefix);
 			set_function();
 		}
 	};

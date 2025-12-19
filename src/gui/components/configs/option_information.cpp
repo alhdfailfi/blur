@@ -15,8 +15,8 @@ void configs::option_information(ui::Container& container) {
 		{
 			"blur amount",
 			{
-				"运动模糊量",
-				"(0 = 无模糊, 1 = 完全混合所有帧, >1 = 混合额外帧（重影）)",
+				"Amount of motion blur",
+				"(0 = no blur, 1 = fully blend all frames, >1 = blend extra frames (ghosting))",
 			},
 		},
 		// { "output fps",
@@ -26,25 +26,25 @@ void configs::option_information(ui::Container& container) {
 		{
 			"blur gamma",
 			{
-				"模糊前视频变暗的程度。使高光更突出",
+				"Amount that the video is darkened before blurring. Makes highlights stand out",
 			},
 		},
 		{
 			"blur weighting gaussian std dev slider",
 			{
-				"高斯模糊权重的标准差",
+				"Standard deviation for Gaussian blur weighting",
 			},
 		},
 		{
 			"blur weighting triangle reverse checkbox",
 			{
-				"反转三角形加权的方向",
+				"Reverses the direction of triangle weighting",
 			},
 		},
 		{
 			"blur weighting bound input",
 			{
-				"加权边界，用于更广泛地分布权重",
+				"Weighting bounds to spread weights more",
 			},
 		},
 
@@ -56,73 +56,73 @@ void configs::option_information(ui::Container& container) {
 		{
 			"interpolate scale checkbox",
 			{
-				"使用FPS插值的倍数而非设定FPS",
+				"Use a multiplier for FPS interpolation rather than a set FPS",
 			},
 		},
 		{
 			"interpolated fps mult",
 			{
-				"FPS插值的倍数",
-				"输入视频将插值到此FPS（模糊前）",
+				"Multiplier for FPS interpolation",
+				"The input video will be interpolated to this FPS (before blurring)",
 			},
 		},
 		{
 			"interpolated fps",
 			{
-				"将输入视频插值到的FPS（模糊前）",
+				"FPS to interpolate input video to (before blurring)",
 			},
 		},
 		{
 			"interpolation method dropdown",
 			{
-				"质量：rife > svp",
-				"速度：svp > rife",
+				"Quality: rife > svp",
+				"Speed: svp > rife",
 			},
 		},
 		// pre-interp settings
 		{
 			"section pre-interpolation checkbox",
 			{
-				"启用预插值，使用更准确但更慢的AI模型进行主插值前的处理",
+				"Enable pre-interpolation using a more accurate but slower AI model before main interpolation",
 			},
 		},
 		{
 			"pre-interpolated fps mult",
 			{
-				"FPS预插值的倍数",
-				"输入视频将插值到此FPS（主插值和模糊前）",
+				"Multiplier for FPS pre-interpolation",
+				"The input video will be interpolated to this FPS (before main interpolation and blurring)",
 			},
 		},
 		{
 			"pre-interpolated fps",
 			{
-				"将输入视频预插值到的FPS（模糊前）",
+				"FPS to pre-interpolate input video to (before blurring)",
 			},
 		},
 		{
 			"SVP interpolation preset dropdown",
 			{
-				"请查看blur GitHub获取更多信息",
+				"Check the blur GitHub for more information",
 			},
 		},
 		{
 			"SVP interpolation algorithm dropdown",
 			{
-				"请查看blur GitHub获取更多信息",
+				"Check the blur GitHub for more information",
 			},
 		},
 		{
 			"interpolation block size dropdown",
 			{
-				"插值的块大小",
-				"(更高 = 准确性降低，速度更快；更低 = 准确性提高，速度更慢)",
+				"Block size for interpolation",
+				"(higher = less accurate, faster; lower = more accurate, slower)",
 			},
 		},
 		{
 			"interpolation mask area slider",
 			{
-				"插值的遮罩量",
-				"(更高可减少静态对象的模糊但可能影响平滑度)",
+				"Mask amount for interpolation",
+				"(higher reduces blur on static objects but can affect smoothness)",
 			},
 		},
 
@@ -130,42 +130,43 @@ void configs::option_information(ui::Container& container) {
 		{
 			"deduplicate checkbox",
 			{
-				"移除重复帧并用插值帧替换",
-				"(修复由录制中的卡顿引起的'不流畅'输出)",
+				"Removes duplicate frames and replaces them with interpolated frames",
+				"(fixes 'unsmooth' looking output caused by stuttering in recordings)",
 			},
 		},
 		{
 			"deduplicate range",
 			{
-				"去重时在当前帧之外查找唯一帧的范围",
-				"如果您的素材FPS低于应有值，请调高此值，例如以240fps录制的卡顿120fps游戏画面",
-				"如果模糊后的素材开始模糊静态元素（如菜单屏幕），请降低此值",
+				"Amount of frames beyond the current frame to look for unique frames when deduplicating",
+				"Make it higher if your footage is at a lower FPS than it should be, e.g. choppy 120fps gameplay "
+				"recorded at 240fps",
+				"Lower it if your blurred footage starts blurring static elements such as menu screens",
 			},
 		},
 		{
 			"deduplicate threshold input",
 			{
-				"触发去重的运动阈值",
-				"在高级设置中启用调试并渲染视频以嵌入显示每帧运动的文本",
+				"Threshold of movement that triggers deduplication",
+				"Turn on debug in advanced and render a video to embed text showing the movement in each frame",
 			},
 		},
 		{
 			"deduplicate method dropdown",
 			{
-				"质量：rife > svp",
-				"速度：old > svp > rife",
+				"Quality: rife > svp",
+				"Speed: old > svp > rife",
 			},
 		},
 		{
 			"preview checkbox",
 			{
-				"渲染时显示预览",
+				"Shows preview while rendering",
 			},
 		},
 		{
 			"detailed filenames checkbox",
 			{
-				"将模糊设置添加到生成的文件名中",
+				"Adds blur settings to generated filenames",
 			},
 		},
 
@@ -191,7 +192,7 @@ void configs::option_information(ui::Container& container) {
 		{
 			"adjust timescaled audio pitch checkbox",
 			{
-				"加速或减速视频时对音频进行音高校正",
+				"Pitch shift audio when speeding up or slowing down video",
 			},
 		},
 
@@ -208,21 +209,21 @@ void configs::option_information(ui::Container& container) {
 		{
 			"video container text input",
 			{
-				"输出视频容器格式",
+				"Output video container format",
 			},
 		},
 		{
 			"custom ffmpeg filters text input",
 			{
-				"用于渲染的自定义FFmpeg过滤器",
-				"(覆盖GPU和质量选项)",
+				"Custom FFmpeg filters for rendering",
+				"(overrides GPU & quality options)",
 			},
 		},
 		// { "debug checkbox", { "Shows debug window and prints commands used by blur", } }
 		{
 			"copy dates checkbox",
 			{
-				"从输入文件复制修改日期",
+				"Copies over the modified date from the input",
 			},
 		},
 	};

@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
 	SetConsoleOutputCP(CP_UTF8);
 #endif
 
-	CLI::App app{ "为视频添加运动模糊" };
+	CLI::App app{ "Add motion blur to videos" };
 
 	std::vector<PathStr> input_strs;
 	std::vector<PathStr> output_strs;
@@ -33,11 +33,11 @@ int main(int argc, char* argv[]) {
 	bool preview = false;
 	bool verbose = false;
 
-	app.add_option("-i,--input", input_strs, "输入文件名（一个或多个）")->required();
-	app.add_option("-o,--output", output_strs, "输出文件名（一个或多个）（可选）");
-	app.add_option("-c,--config-path", config_path_strs, "手动配置文件路径（一个或多个）（可选）");
-	app.add_flag("-p,--preview", preview, "启用预览");
-	app.add_flag("-v,--verbose", verbose, "详细模式");
+	app.add_option("-i,--input", input_strs, "Input file name(s)")->required();
+	app.add_option("-o,--output", output_strs, "Output file name(s) (optional)");
+	app.add_option("-c,--config-path", config_path_strs, "Manual configuration file path(s) (optional)");
+	app.add_flag("-p,--preview", preview, "Enable preview");
+	app.add_flag("-v,--verbose", verbose, "Verbose mode");
 
 	CLI11_PARSE(app, argc, argv);
 

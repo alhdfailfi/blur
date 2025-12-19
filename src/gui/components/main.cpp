@@ -18,11 +18,11 @@ void main::open_files_button(ui::Container& container, const std::string& label)
 			if (files && *files) {
 				std::vector<std::filesystem::path> wpaths;
 
-				std::span<const char* const> span_files(files, SIZE_MAX); // 大尺寸，我们手动停止
+				std::span<const char* const> span_files(files, SIZE_MAX); // big size, we stop manually
 
 				for (const auto& file : span_files) {
 					if (file == nullptr)
-						break; // 空终止数组
+						break; // null-terminated array
 
 					wpaths.emplace_back(u::string_to_path(file));
 				}
@@ -32,19 +32,19 @@ void main::open_files_button(ui::Container& container, const std::string& label)
 		};
 
 		const SDL_DialogFileFilter filters[] = {
-			{ "视频文件",
+			{ "Video files",
 			  "webm;mkv;flv;vob;ogv;ogg;rrc;gifv;mng;mov;avi;qt;wmv;yuv;rm;rmvb;asf;amv;mp4;m4p;m4v;mpg;mp2;mpeg;mpe;"
 			  "mpv;svi;3gp;3g2;mxf;roq;nsv;f4v;f4p;f4a;f4b;mod;ts;m2ts;mts;divx;bik;wtv;drc" }
 		};
 
 		SDL_ShowOpenFileDialog(
-			file_callback, // 正确类型的回调函数
-			nullptr,       // 用户数据
-			nullptr,       // 父窗口（nullptr为默认）
-			filters,       // 文件过滤器
-			1,             // 过滤器数量
-			"",            // 默认路径
-			true           // 允许多个文件
+			file_callback, // Properly typed callback function
+			nullptr,       // userdata
+			nullptr,       // parent window (nullptr for default)
+			filters,       // file filters
+			1,             // number of filters
+			"",            // default path
+			true           // allow multiple files
 		);
 	});
 };
@@ -57,9 +57,9 @@ void main::render_screen(
 	bool& is_progress_shown,
 	float& bar_percent
 ) {
-	// todo: 界面概念
-	// 屏幕开始|      [淡化]上一个视频 当前视频 [淡化]下一个视频 下下个视频 下下下个视频 (+5) |屏幕结束
-	// 随着队列移动，动画滑动进入
+	// todo: ui concept
+	// screen start|      [faded]last_video current_video [faded]next_video next_video2 next_video3 (+5) |
+	// screen end animate sliding in as it moves along the queue
 
 	std::string render_title_text = render.get_video_name();
 
@@ -121,7 +121,7 @@ void main::render_screen(
 			ui::add_text(
 				"paused text",
 				container,
-				"已暂停",
+				"Paused",
 				gfx::Color::white(renderer::MUTED_SHADE),
 				fonts::dejavu,
 				FONT_CENTERED_X
@@ -136,7 +136,7 @@ void main::render_screen(
 		ui::add_text(
 			"progress text",
 			container,
-			std::format("帧 {}/{}", render_status.current_frame, render_status.total_frames),
+			std::format("frame {}/{}", render_status.current_frame, render_status.total_frames),
 			gfx::Color::white(renderer::MUTED_SHADE),
 			fonts::dejavu,
 			FONT_CENTERED_X
@@ -146,7 +146,7 @@ void main::render_screen(
 			ui::add_text(
 				"progress text fps",
 				container,
-				std::format("{:.2f} 帧每秒", render_status.fps),
+				std::format("{:.2f} frames per second", render_status.fps),
 				gfx::Color::white(renderer::MUTED_SHADE),
 				fonts::dejavu,
 				FONT_CENTERED_X
@@ -163,16 +163,16 @@ void main::render_screen(
 
 			std::ostringstream eta_stream;
 			if (hours > 0)
-				eta_stream << hours << " 小时" << (hours > 1 ? "" : "");
+				eta_stream << hours << " hour" << (hours > 1 ? "s " : " ");
 			if (minutes > 0)
-				eta_stream << minutes << " 分钟" << (minutes > 1 ? "" : "");
+				eta_stream << minutes << " minute" << (minutes > 1 ? "s " : " ");
 			if (seconds > 0 || (hours == 0 && minutes == 0))
-				eta_stream << seconds << " 秒" << (seconds != 1 ? "" : "");
+				eta_stream << seconds << " second" << (seconds != 1 ? "s" : "");
 
 			ui::add_text(
 				"progress text eta",
 				container,
-				std::format("约{}剩余", eta_stream.str()),
+				std::format("~{} left", eta_stream.str()),
 				gfx::Color::white(renderer::MUTED_SHADE),
 				fonts::dejavu,
 				FONT_CENTERED_X
@@ -186,7 +186,7 @@ void main::render_screen(
 			ui::add_text(
 				"paused text",
 				container,
-				"已暂停",
+				"Paused",
 				gfx::Color::white(renderer::MUTED_SHADE),
 				fonts::dejavu,
 				FONT_CENTERED_X
@@ -196,7 +196,7 @@ void main::render_screen(
 			ui::add_text(
 				"initialising render text",
 				container,
-				"正在初始化渲染...",
+				"Initialising render...",
 				gfx::Color::white(),
 				fonts::dejavu,
 				FONT_CENTERED_X
@@ -227,7 +227,7 @@ void main::home_screen(ui::Container& container, float delta_time) {
 			ui::add_text(
 				"failed to initialise text",
 				container,
-				"初始化失败",
+				"Failed to initialise",
 				gfx::Color::white(),
 				fonts::dejavu,
 				FONT_CENTERED_X
@@ -245,10 +245,10 @@ void main::home_screen(ui::Container& container, float delta_time) {
 			return;
 		}
 
-		open_files_button(container, "打开文件");
+		open_files_button(container, "Open files");
 
 		ui::add_text(
-			"drop file text", container, "或将文件拖放到任意位置", gfx::Color::white(), fonts::dejavu, FONT_CENTERED_X
+			"drop file text", container, "or drop them anywhere", gfx::Color::white(), fonts::dejavu, FONT_CENTERED_X
 		);
 	}
 	else {
@@ -258,7 +258,7 @@ void main::home_screen(ui::Container& container, float delta_time) {
 		{
 			auto current_render = rendering.get_current_render();
 
-			// 显示当前渲染的最终状态，否则可能会被跳过
+			// displays final state of the current render once where it would have been skipped otherwise
 			auto render_current_edge_case = [&] {
 				if (!current_render_copy)
 					return;
@@ -288,7 +288,7 @@ void main::home_screen(ui::Container& container, float delta_time) {
 		rendering.unlock();
 
 		if (!is_progress_shown) {
-			bar_percent = 0.f; // 当没有进度条显示时重置
+			bar_percent = 0.f; // Reset when no progress bar is shown
 		}
 	}
 }
