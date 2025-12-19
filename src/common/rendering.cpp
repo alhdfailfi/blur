@@ -27,7 +27,7 @@ bool Rendering::render_next_video() {
 
 		if (!render_result) {
 			u::log(render_result.error());
-			u::log("渲染 {} 失败", render->get_video_name());
+			u::log("渲染失败 {}", render->get_video_name());
 		}
 	}
 	catch (const std::exception& e) {
@@ -38,7 +38,7 @@ bool Rendering::render_next_video() {
 		render_ptr, render_result
 	); // note: cant do render.get() here cause compiler optimisations break it somehow (So lit)
 
-	// finished rendering, delete
+	// 渲染完成，删除任务
 	lock();
 	{
 		m_queue.erase(m_queue.begin());
@@ -60,10 +60,10 @@ Render& Rendering::queue_render(Render&& render) {
 }
 
 void Render::build_output_filename() {
-	auto output_folder = this->m_video_folder / std::filesystem::path(this->m_app_settings.output_prefix);
+	auto output_folder = this->m_video_folder / this->m_app_settings.output_prefix;
 	std::filesystem::create_directories(output_folder);
 
-	// build output filename
+	// 构建输出文件名
 	int num = 1;
 	do {
 		std::string output_filename = this->m_video_name + " - blur";
@@ -116,8 +116,8 @@ Render::Render(
 	const std::optional<std::filesystem::path>& config_path
 )
 	: m_video_path(std::move(input_path)), m_video_info(std::move(video_info)) {
-	// set id note: is this silly? seems elegant but i might be missing some edge case
-	static uint32_t current_render_id = 1; // 0 is null
+	// 设置ID
+	static uint32_t current_render_id = 1; // 0 表示空
 	m_render_id = current_render_id++;
 
 #ifdef WIN32
@@ -128,18 +128,10 @@ Render::Render(
 
 	this->m_video_folder = this->m_video_path.parent_path();
 
-	// parse config file (do it now, not when rendering. nice for batch rendering the same file with different settings)
-	std::filesystem::path config_file;
-	if (config_path.has_value()) {
-		config_file = config_path.value();
-	}
-	else {
-		config_file = config_blur::get_config_filename(m_video_folder);
-	}
-	
+	// 解析配置文件（现在执行，而不是渲染时。适用于用不同设置批量渲染同一文件）
 	auto config_res = config_blur::get_config(
-		config_file,
-		!config_path.has_value() // use global only if no config path is specified
+		config_path.has_value() ? output_path.value() : config_blur::get_config_filename(m_video_folder),
+		!config_path.has_value() // 仅当未指定配置文件路径时使用全局配置
 	);
 
 	this->m_settings = config_res.config;
@@ -147,11 +139,10 @@ Render::Render(
 
 	this->m_app_settings = config_app::get_app_config();
 
-	if (output_path.has_value()) {
+	if (output_path.has_value())
 		this->m_output_path = output_path.value();
-	}
 	else {
-		// note: this uses settings, so has to be called after they're loaded
+		// 注意：这使用设置，必须在加载设置后调用
 		build_output_filename();
 	}
 }
@@ -161,13 +152,10 @@ bool Render::create_temp_path() {
 
 	auto temp_path = blur.create_temp_path(std::to_string(out_hash));
 
-	if (temp_path.has_value()) {
-		m_temp_path = temp_path.value();
-		return true;
-	}
-	else {
-		return false;
-	}
+	if (temp_path)
+		m_temp_path = *temp_path;
+
+	return temp_path.has_value();
 }
 
 bool Render::remove_temp_path() {
@@ -188,16 +176,16 @@ tl::expected<RenderCommands, std::string> Render::build_render_commands() {
 	if (!app_settings_json)
 		return tl::unexpected(app_settings_json.error());
 
-	settings_json->update(*app_settings_json); // adds new keys from app settings (and overrides dupes)
+	settings_json->update(*app_settings_json); // 从应用设置添加新键（并覆盖重复项）
 
 #if defined(__linux__)
 	bool vapoursynth_plugins_bundled = std::filesystem::exists(blur.resources_path / "vapoursynth-plugins");
 #endif
 
 	std::wstring path_string = m_video_path.wstring();
-	std::ranges::replace(path_string, L'\\', L'/');
+	std::ranges::replace(path_string, '\\', '/');
 
-	// Build vspipe command
+	// 构建 vspipe 命令
 	commands.vspipe = { L"-p",
 		                L"-c",
 		                L"y4m",
@@ -227,25 +215,25 @@ tl::expected<RenderCommands, std::string> Render::build_render_commands() {
 		                blur_script_path.wstring(),
 		                L"-" };
 
-	// Build ffmpeg command
+	// 构建 ffmpeg 命令
 	commands.ffmpeg = { L"-loglevel",
 		                L"error",
 		                L"-hide_banner",
 		                L"-stats",
 		                L"-y",
 		                L"-i",
-		                L"-", // piped output from video script
+		                L"-", // 从视频脚本管道输出
 		                L"-fflags",
 		                L"+genpts",
 		                L"-i",
-		                m_video_path.wstring(), // original video (for audio)
+		                m_video_path.wstring(), // 原始视频（用于音频）
 		                L"-map",
 		                L"0:v",
 		                L"-map",
 		                L"1:a?" };
 
-	// handle colour metadata tagging
-	// (vspipe strips this input info, need to define it manually so ffmpeg knows about it)
+	// 处理色彩元数据标记
+	// （vspipe会剥离这些输入信息，需要手动定义以便ffmpeg知道）
 	std::vector<std::string> params;
 
 	if (m_video_info.color_range) {
@@ -282,29 +270,25 @@ tl::expected<RenderCommands, std::string> Render::build_render_commands() {
 		commands.ffmpeg.emplace_back(u::towstring(*m_video_info.pix_fmt));
 	}
 
-	// Handle audio filters
+	// 处理音频过滤器
 	std::vector<std::wstring> audio_filters;
 	if (m_settings.timescale) {
 		if (m_settings.input_timescale != 1.f) {
-			audio_filters.push_back(
-				std::format(
-					L"asetrate={}*{}",
-					m_video_info.sample_rate != -1 ? m_video_info.sample_rate : 48000,
-					(1 / m_settings.input_timescale)
-				)
-			);
+			audio_filters.push_back(std::format(
+				L"asetrate={}*{}",
+				m_video_info.sample_rate != -1 ? m_video_info.sample_rate : 48000,
+				(1 / m_settings.input_timescale)
+			));
 			audio_filters.emplace_back(L"aresample=48000");
 		}
 
 		if (m_settings.output_timescale != 1.f) {
 			if (m_settings.output_timescale_audio_pitch) {
-				audio_filters.push_back(
-					std::format(
-						L"asetrate={}*{}",
-						m_video_info.sample_rate != -1 ? m_video_info.sample_rate : 48000,
-						m_settings.output_timescale
-					)
-				);
+				audio_filters.push_back(std::format(
+					L"asetrate={}*{}",
+					m_video_info.sample_rate != -1 ? m_video_info.sample_rate : 48000,
+					m_settings.output_timescale
+				));
 				audio_filters.emplace_back(L"aresample=48000");
 			}
 			else {
@@ -315,16 +299,14 @@ tl::expected<RenderCommands, std::string> Render::build_render_commands() {
 
 	if (!audio_filters.empty()) {
 		commands.ffmpeg.emplace_back(L"-af");
-		commands.ffmpeg.push_back(
-			std::accumulate(
-				std::next(audio_filters.begin()),
-				audio_filters.end(),
-				audio_filters[0],
-				[](const std::wstring& a, const std::wstring& b) {
-					return a + L"," + b;
-				}
-			)
-		);
+		commands.ffmpeg.push_back(std::accumulate(
+			std::next(audio_filters.begin()),
+			audio_filters.end(),
+			audio_filters[0],
+			[](const std::wstring& a, const std::wstring& b) {
+				return a + L"," + b;
+			}
+		));
 	}
 
 	if (!m_settings.advanced.ffmpeg_override.empty()) {
@@ -344,17 +326,17 @@ tl::expected<RenderCommands, std::string> Render::build_render_commands() {
 		for (const auto& arg : preset_args)
 			commands.ffmpeg.push_back(u::towstring(arg));
 
-		// audio
+		// 音频
 		commands.ffmpeg.insert(commands.ffmpeg.end(), { L"-c:a", L"aac", L"-b:a", L"320k" });
 
-		// extra
+		// 额外设置
 		commands.ffmpeg.insert(commands.ffmpeg.end(), { L"-movflags", L"+faststart" });
 	}
 
-	// Output path
+	// 输出路径
 	commands.ffmpeg.push_back(m_output_path.wstring());
 
-	// Preview output if needed
+	// 如果需要预览输出
 	if (m_settings.preview && blur.using_preview) {
 		commands.ffmpeg.insert(
 			commands.ffmpeg.end(),
@@ -416,8 +398,8 @@ tl::expected<RenderResult, std::string> Render::do_render(RenderCommands render_
 #ifndef _DEBUG
 		if (m_settings.advanced.debug) {
 #endif
-			DEBUG_LOG("VSPipe command: {} {}", blur.vspipe_path, u::tostring(u::join(render_commands.vspipe, L" ")));
-			DEBUG_LOG("FFmpeg command: {} {}", blur.ffmpeg_path, u::tostring(u::join(render_commands.ffmpeg, L" ")));
+			DEBUG_LOG("VSPipe 命令: {} {}", blur.vspipe_path, u::tostring(u::join(render_commands.vspipe, L" ")));
+			DEBUG_LOG("FFmpeg 命令: {} {}", blur.ffmpeg_path, u::tostring(u::join(render_commands.ffmpeg, L" ")));
 #ifndef _DEBUG
 		}
 #endif
@@ -439,7 +421,7 @@ tl::expected<RenderResult, std::string> Render::do_render(RenderCommands render_
 		}
 #endif
 
-		// Launch vspipe process
+		// 启动 vspipe 进程
 		bp::child vspipe_process(
 			boost::filesystem::path{ blur.vspipe_path },
 			bp::args(render_commands.vspipe),
@@ -452,7 +434,7 @@ tl::expected<RenderResult, std::string> Render::do_render(RenderCommands render_
 #endif
 		);
 
-		// Launch ffmpeg process
+		// 启动 ffmpeg 进程
 		bp::child ffmpeg_process(
 			boost::filesystem::path{ blur.ffmpeg_path },
 			bp::args(render_commands.ffmpeg),
@@ -466,7 +448,7 @@ tl::expected<RenderResult, std::string> Render::do_render(RenderCommands render_
 #endif
 		);
 
-		// Store PIDs for signal handler
+		// 存储PID用于信号处理
 		m_vspipe_pid = vspipe_process.id();
 		m_ffmpeg_pid = ffmpeg_process.id();
 
@@ -477,12 +459,12 @@ tl::expected<RenderResult, std::string> Render::do_render(RenderCommands render_
 
 			while (ffmpeg_process.running() && vspipe_stderr.get(ch)) {
 				if (ch == '\n') {
-					// Handle full line for logging
+					// 处理完整行用于日志记录
 					vspipe_stderr_output << line << '\n';
 					line.clear();
 				}
 				else if (ch == '\r') {
-					// Handle progress update
+					// 处理进度更新
 					static std::regex frame_regex(R"(Frame: (\d+)\/(\d+)(?: \((\d+\.\d+) fps\))?)");
 
 					std::smatch match;
@@ -493,16 +475,16 @@ tl::expected<RenderResult, std::string> Render::do_render(RenderCommands render_
 						update_progress(current_frame, total_frames);
 					}
 
-					// Don't clear the line for logging purposes
+					// 不要清除行用于日志记录
 					progress_line = line;
 					line.clear();
 				}
 				else {
-					line += ch; // Append character to the line
+					line += ch; // 添加字符到行
 				}
 			}
 
-			// Process any remaining data in the pipe
+			// 处理管道中的剩余数据
 			std::string remaining;
 			while (std::getline(vspipe_stderr, remaining)) {
 				vspipe_stderr_output << remaining << '\n';
@@ -530,7 +512,7 @@ tl::expected<RenderResult, std::string> Render::do_render(RenderCommands render_
 			std::this_thread::sleep_for(std::chrono::milliseconds(50));
 		}
 
-		// Clean up
+		// 清理
 		if (progress_thread.joinable())
 			progress_thread.join();
 
@@ -553,19 +535,17 @@ tl::expected<RenderResult, std::string> Render::do_render(RenderCommands render_
 
 		m_status.finished = true;
 
-		// final progress update
+		// 最终进度更新
 		update_progress(m_status.total_frames, m_status.total_frames);
 
 		std::chrono::duration<float> elapsed_time = std::chrono::steady_clock::now() - m_status.start_time;
 		float elapsed_seconds = elapsed_time.count();
-		u::log("渲染完成，用时 {:.2f}秒", elapsed_seconds);
+		u::log("渲染完成，耗时 {:.2f}秒", elapsed_seconds);
 
 		if (vspipe_process.exit_code() != 0 || ffmpeg_process.exit_code() != 0) {
-			return tl::unexpected(
-				std::format(
-					"--- [vspipe 错误] ---\n{}\n--- [ffmpeg 错误] ---\n{}", vspipe_stderr_output.str(), ffmpeg_stderr_output.str()
-				)
-			);
+			return tl::unexpected(std::format(
+				"--- [vspipe] ---\n{}\n--- [ffmpeg] ---\n{}", vspipe_stderr_output.str(), ffmpeg_stderr_output.str()
+			));
 		}
 
 		return RenderResult{
@@ -573,7 +553,7 @@ tl::expected<RenderResult, std::string> Render::do_render(RenderCommands render_
 		};
 	}
 	catch (const boost::system::system_error& e) {
-		// clean up
+		// 清理
 		m_vspipe_pid = -1;
 		m_ffmpeg_pid = -1;
 
@@ -626,7 +606,7 @@ void Render::resume() {
 
 tl::expected<RenderResult, std::string> Render::render() {
 	if (!blur.initialised)
-		return tl::unexpected("Blur未初始化");
+		return tl::unexpected("Blur 未初始化");
 
 	u::log("正在渲染 '{}'\n", m_video_name);
 
@@ -635,25 +615,25 @@ tl::expected<RenderResult, std::string> Render::render() {
 		u::log("源视频时间尺度 {:.2f}", m_settings.input_timescale);
 		if (m_settings.interpolate)
 			u::log(
-				"插值到 {} 帧/秒，时间尺度 {:.2f}", m_settings.interpolated_fps, m_settings.output_timescale
+				"插值到 {}fps，时间尺度 {:.2f}", m_settings.interpolated_fps, m_settings.output_timescale
 			);
 		if (m_settings.blur)
 			u::log(
-				"运动模糊到 {} 帧/秒 ({}%)",
+				"运动模糊到 {}fps ({}%)",
 				m_settings.blur_output_fps,
 				static_cast<int>(m_settings.blur_amount * 100)
 			);
-		u::log("以 {:.2f} 倍速渲染，crf {}", m_settings.output_timescale, m_settings.quality);
+		u::log("以 {:.2f} 倍速和 crf {} 渲染", m_settings.output_timescale, m_settings.quality);
 	}
 
-	// start preview
+	// 开始预览
 	if (m_settings.preview && blur.using_preview) {
 		if (create_temp_path()) {
 			m_preview_path = m_temp_path / "blur_preview.jpg";
 		}
 	}
 
-	// render
+	// 渲染
 	auto render_commands = build_render_commands();
 	if (!render_commands)
 		return tl::unexpected(render_commands.error());
@@ -673,7 +653,7 @@ tl::expected<RenderResult, std::string> Render::render() {
 		}
 		else {
 			if (blur.verbose) {
-				u::log("完成渲染 '{}'", m_video_name);
+				u::log("已完成渲染 '{}'", m_video_name);
 			}
 
 			if (m_settings.copy_dates) {
@@ -692,7 +672,7 @@ tl::expected<RenderResult, std::string> Render::render() {
 		}
 	}
 
-	// stop preview
+	// 停止预览
 	remove_temp_path();
 
 	return render;
@@ -705,7 +685,7 @@ void Rendering::stop_renders_and_wait() {
 		u::log("正在停止当前渲染");
 	}
 
-	// wait for current render to finish
+	// 等待当前渲染完成
 	while (get_current_render_id()) {
 		std::this_thread::sleep_for(std::chrono::milliseconds(50));
 	}
@@ -719,7 +699,7 @@ void RenderStatus::update_progress_string(bool first) {
 	}
 	else {
 		progress_string =
-			std::format("{:.1f}% 完成 ({}/{}, {:.2f} 帧/秒)", progress * 100, current_frame, total_frames, fps);
+			std::format("{:.1f}% 完成 ({}/{}, {:.2f} fps)", progress * 100, current_frame, total_frames, fps);
 	}
 }
 

@@ -1,11 +1,4 @@
 ﻿﻿#include "rendering_frame.h"
-#include "rendering.h"
-#include "config_app.h"
-
-// 注意：根据头文件，build_render_commands是静态成员函数
-// 但在你的实现中，你把它当作非静态成员函数实现了
-// 这里需要统一：要么在头文件中移除static，要么在实现中加上static
-// 根据头文件，它应该是静态的，所以实现应该匹配
 
 tl::expected<RenderCommands, std::string> FrameRender::build_render_commands(
 	const std::filesystem::path& input_path,
@@ -17,13 +10,13 @@ tl::expected<RenderCommands, std::string> FrameRender::build_render_commands(
 
 	auto settings_json = settings.to_json();
 	if (!settings_json)
-		return tl::unexpected<std::string>(settings_json.error());
+		return tl::unexpected(settings_json.error());
 
 	auto app_settings_json = app_settings.to_json();
 	if (!app_settings_json)
-		return tl::unexpected<std::string>(app_settings_json.error());
+		return tl::unexpected(app_settings_json.error());
 
-	settings_json->update(*app_settings_json); // adds new keys from app settings (and overrides dupes)
+	settings_json->update(*app_settings_json); // 从应用设置添加新键（并覆盖重复项）
 
 #if defined(__linux__)
 	bool vapoursynth_plugins_bundled = std::filesystem::exists(blur.resources_path / "vapoursynth-plugins");
@@ -32,9 +25,9 @@ tl::expected<RenderCommands, std::string> FrameRender::build_render_commands(
 	RenderCommands commands;
 
 	std::wstring path_string = input_path.wstring();
-	std::ranges::replace(path_string, L'\\', L'/');
+	std::ranges::replace(path_string, '\\', '/');
 
-	// Build vspipe command
+	// 构建 vspipe 命令
 	commands.vspipe = { L"-p",
 		                L"-c",
 		                L"y4m",
@@ -57,7 +50,7 @@ tl::expected<RenderCommands, std::string> FrameRender::build_render_commands(
 		                blur_script_path.wstring(),
 		                L"-" };
 
-	// Build ffmpeg command
+	// 构建 ffmpeg 命令
 	// clang-format off
 	commands.ffmpeg = {
 		L"-loglevel",
@@ -65,12 +58,12 @@ tl::expected<RenderCommands, std::string> FrameRender::build_render_commands(
 		L"-hide_banner",
 		L"-stats",
 		L"-ss",
-		L"00:00:00.200", // skip forward a bit because blur needs context todo: how low can this go?
+		L"00:00:00.200", // 向前跳过一点，因为模糊需要上下文 todo: 这个值可以设多低？
 		L"-y",
 		L"-i",
-		L"-", // piped output from video script
+		L"-", // 从视频脚本管道输出
 		L"-vframes",
-		L"1", // render 1 frame
+		L"1", // 渲染1帧
 		L"-q:v",
 		L"2",
 		L"-y",
@@ -95,8 +88,8 @@ tl::expected<void, std::string> FrameRender::do_render(RenderCommands render_com
 #ifndef _DEBUG
 		if (settings.advanced.debug) {
 #endif
-			DEBUG_LOG("VSPipe command: {} {}", blur.vspipe_path, u::tostring(u::join(render_commands.vspipe, L" ")));
-			DEBUG_LOG("FFmpeg command: {} {}", blur.ffmpeg_path, u::tostring(u::join(render_commands.ffmpeg, L" ")));
+			DEBUG_LOG("VSPipe 命令: {} {}", blur.vspipe_path, u::tostring(u::join(render_commands.vspipe, L" ")));
+			DEBUG_LOG("FFmpeg 命令: {} {}", blur.ffmpeg_path, u::tostring(u::join(render_commands.ffmpeg, L" ")));
 #ifndef _DEBUG
 		}
 #endif
@@ -118,7 +111,7 @@ tl::expected<void, std::string> FrameRender::do_render(RenderCommands render_com
 		}
 #endif
 
-		// Declare as local variables first, then move or assign
+		// 先声明为局部变量，然后移动或赋值
 		auto vspipe_process = bp::child(
 			boost::filesystem::path{ blur.vspipe_path },
 			bp::args(render_commands.vspipe),
@@ -156,7 +149,7 @@ tl::expected<void, std::string> FrameRender::do_render(RenderCommands render_com
 			if (m_to_kill) {
 				ffmpeg_process.terminate();
 				vspipe_process.terminate();
-				DEBUG_LOG("frame render: killed processes early");
+				DEBUG_LOG("帧渲染: 提前终止进程");
 				m_to_kill = false;
 			}
 
@@ -169,20 +162,20 @@ tl::expected<void, std::string> FrameRender::do_render(RenderCommands render_com
 
 		if (settings.advanced.debug)
 			u::log(
-				"vspipe exit code: {}, ffmpeg exit code: {}", vspipe_process.exit_code(), ffmpeg_process.exit_code()
+				"vspipe 退出代码: {}, ffmpeg 退出代码: {}", vspipe_process.exit_code(), ffmpeg_process.exit_code()
 			);
 
 		if (ffmpeg_process.exit_code() != 0) { // || vspipe_process.exit_code() != 0;
-			                                   // todo: check why vspipe isnt returning 0
+			                                   // todo: 检查为什么vspipe没有返回0
 			remove_temp_path();
-			return tl::unexpected<std::string>(vspipe_stderr_output.str());
+			return tl::unexpected(vspipe_stderr_output.str());
 		}
 
 		return {};
 	}
 	catch (const boost::system::system_error& e) {
-		u::log_error("Process error: {}", e.what());
-		return tl::unexpected<std::string>(e.what());
+		u::log_error("进程错误: {}", e.what());
+		return tl::unexpected(e.what());
 	}
 }
 
@@ -208,27 +201,27 @@ tl::expected<std::filesystem::path, std::string> FrameRender::render(
 	const std::filesystem::path& input_path, const BlurSettings& settings, const GlobalAppSettings& app_settings
 ) {
 	if (!blur.initialised)
-		return tl::unexpected<std::string>("Blur未初始化");
+		return tl::unexpected("Blur 未初始化");
 
 	if (!std::filesystem::exists(input_path)) {
-		return tl::unexpected<std::string>("输入路径不存在");
+		return tl::unexpected("输入路径不存在");
 	}
 
 	if (!create_temp_path()) {
 		u::log("创建临时路径失败");
-		return tl::unexpected<std::string>("创建临时路径失败");
+		return tl::unexpected("创建临时路径失败");
 	}
 
 	std::filesystem::path output_path = m_temp_path / "render.jpg";
 
-	// render
+	// 渲染
 	auto render_commands = build_render_commands(input_path, output_path, settings, app_settings);
 	if (!render_commands)
-		return tl::unexpected<std::string>(render_commands.error());
+		return tl::unexpected(render_commands.error());
 
 	auto render_res = do_render(*render_commands, settings);
 	if (!render_res)
-		return tl::unexpected<std::string>(render_res.error());
+		return tl::unexpected(render_res.error());
 
 	return output_path;
 }
